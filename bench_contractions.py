@@ -17,7 +17,6 @@ import contextlib
 import glob
 import os
 from pathlib import Path
-import re
 import sys
 import timeit
 
@@ -29,16 +28,14 @@ def fname_output(model, fname, config):
     return path / f"{fname.stem}.out"
 
 
-def run_bench(model, fname, config, repeat, to_file):
+def run_bench(model, fname_out, config, repeat):
     """
     Run a single benchmark and output results to file or to stdout
     """
-    bench = models[model](fname, config)
-
-    target = fname_output(model, fname, config) if to_file else None
+    bench = model(fname, config)
 
     with contextlib.ExitStack() as stack:
-        f = stack.enter_context(open(target, 'w')) if target else sys.stdout
+        f = stack.enter_context(open(fname_out, 'w')) if fname_out else sys.stdout
 
         bench.print_header(file=f)
 
@@ -91,4 +88,5 @@ if __name__ == "__main__":
     # execute benchmarks
     for fname in fnames:
         for model in use_models:
-            run_bench(model, fname, config, args.repeat, args.to_file)
+            fname_out = fname_output(model, fname, config) if args.to_file else None
+            run_bench(models[model], fname_out, config, args.repeat)

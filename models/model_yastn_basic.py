@@ -67,7 +67,7 @@ class CtmBenchYastnBasic(CtmBenchParent):
         print("", file=file)
         for k, v in self.tensors.items():
             print(f"{k} tensor properties:", file=file)
-            v.show_properties(file=file)
+            v.print_properties(file=file)
 
     def enlarged_corner(self):
         """
