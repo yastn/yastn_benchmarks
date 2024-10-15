@@ -70,7 +70,7 @@ class CtmBenchYastnBasic(CtmBenchParent):
             v.print_properties(file=file)
 
     def enlarged_corner(self):
-        """
+        r"""
         Contract the network
 
         a(0-)--Tt--(3+)A(0-)--Ctr

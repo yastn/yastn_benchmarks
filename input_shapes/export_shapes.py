@@ -18,7 +18,7 @@ import json
 # import yastn
 
 def export_shapes(a, Tt, Tr, fheader=None, a_order="tlbrsa", Tt_order="lacr", Tr_order="tacb"):
-    """
+    r"""
     Read legs of yastn tensors a, Tt, Tr;
     Generate dictionary compatible with data in /input_shapes
     """

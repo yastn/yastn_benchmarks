@@ -25,7 +25,7 @@ class CtmBenchYastnDL(CtmBenchYastnBasic):
         print("Form double-layer A tensor on the fly; No fusion in building tensors.", file=file)
 
     def enlarged_corner(self):
-        """
+        r"""
         Contract the network
 
         a(0-)--Tt--(3+)A(0-)--Ctr

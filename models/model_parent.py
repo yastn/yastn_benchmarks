@@ -46,7 +46,7 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
         print(" Fill-in contractions. ", file=file)
 
     def enlarged_corner(self):
-        """
+        r"""
         Contract the network
 
         -----Tt---Ctr
@@ -60,7 +60,7 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
         self.tensors["C2x2tr"] = None
 
     def fuse_enlarged_corner(self):
-        """
+        r"""
         From block-sparse tensor to block-sparse matrix
 
         (0----C2x2  -> 0--C2x2
@@ -73,11 +73,11 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
         self.tensors["C2x2mat"] = None
 
     def svd_enlarged_corner(self):
-        """
+        r"""
         Perform svd of block-sparse matrix
         """
         self.tensors["U"], self.tensors["S"], self.tensors["V"] = None, None, None
 
     def final_cleanup(self):
-        """ For operations done after executing benchmarks """
+        r""" For operations done after executing benchmarks """
         pass

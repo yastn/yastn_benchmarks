@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""
+r"""
 Benchmark 2-site DMRG in Heisenberg spin-1 model.
 
 We follow a benchmark example adopted by TeNPy and iTensor

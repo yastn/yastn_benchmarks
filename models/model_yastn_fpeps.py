@@ -32,7 +32,7 @@ class CtmBenchYastnfpeps(CtmBenchYastnBasic):
         print("Attach a and a* sequentially; Fusion of some legs in input and intermidiate tensors; Used in yastn.tn.fpeps.", file=file)
 
     def enlarged_corner(self):
-        """
+        r"""
         Contract the network
 
         (0)-----Tt---Ctr
