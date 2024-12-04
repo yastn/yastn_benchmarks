@@ -4,7 +4,7 @@ This repository contains a few benchmarks for [YASTN](https://github.com/yastn/y
 
 ## 2-site DMRG
 
-We follow a benchmark framework employing 2-site DMRG set up by the authors of [TeNPy](https://github.com/tenpy/tenpy) and [ITensor](https://github.com/ITensor/ITensors.jl). It considers a spin-1 Heisenberg chain of 100 sites, performing a number of DMRG sweeps with increasing MPS bond dimensions.
+We follow a benchmark framework adopted by the authors of [TeNPy](https://github.com/tenpy/tenpy) and [ITensor](https://github.com/ITensor/ITensors.jl). It considers a spin-1 Heisenberg chain of 100 sites, performing a number of 2-site DMRG sweeps with increasing MPS bond dimensions.
 
 See, [TeNPy benchmarks](https://github.com/tenpy/tenpy_benchmarks) and [TeNPy and ITensor Comparisons](
 https://itensor.github.io/ITensorBenchmarks.jl/dev/tenpy_itensor/index.html).
@@ -32,6 +32,4 @@ We thank TeNPY developer Johannes Hauschild for the discussions.
 
 ## CTMRG contractions
 
-We collect core elements of CTMRG update for tensor sizes motivated by real-life applications described in [YASTN release article](https://arxiv.org/abs/2405.12196).
-
-See `.\bench_contractions.py` for details, with tensor sizes gathered in `.\input_shapes\` folder.
+We collect core elements of CTMRG update for tensor sizes motivated by real-life applications described in [YASTN release article](https://arxiv.org/abs/2405.12196). See `.\bench_contractions.py` for details of the test framework, with tensor sizes gathered in `.\input_shapes\` folder.

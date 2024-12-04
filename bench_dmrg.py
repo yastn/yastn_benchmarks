@@ -80,12 +80,12 @@ def dmrg_Heisenberg(args):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("-sym", type=str, default='U1', choices=['Z3', 'dense', 'U1'])
-    parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch'])
-    parser.add_argument("-device", type=str, default='cpu', choices=['cpu', 'cuda'])
-    parser.add_argument("-svd_on_cpu", dest='svd_on_cpu', action='store_true')
-    parser.add_argument("-max_seconds", type=int, default=3600)
-    parser.add_argument("-num_threads", type=str, default='none', choices=['none'] + [str(n) for n in range(1, 33)])
+    parser.add_argument("-sym", type=str, help='Model symmetry employed in the test.', default='U1', choices=['dense', 'Z3', 'U1'])
+    parser.add_argument("-backend", help='YASTN backend', type=str, default='np', choices=['np', 'torch'])
+    parser.add_argument("-device", help='Torch backend allows using cuda (GPU).', type=str, default='cpu', choices=['cpu', 'cuda'])
+    parser.add_argument("-svd_on_cpu", help='Force SVD decomposition to be performed on CPU.', dest='svd_on_cpu', action='store_true')
+    parser.add_argument("-max_seconds",  help='Terminate too-long tests.', type=int, default=3600)
+    parser.add_argument("-num_threads", help='Specify the number of CPU cores.', type=str, default='none', choices=['none'] + [str(n) for n in range(1, 17)])
     args = parser.parse_args()
 
     if args.num_threads != 'none':
