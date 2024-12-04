@@ -1,7 +1,6 @@
 # Benchmark results
 results/
 peps-torch
-*.txt
 *.cprof
 
 # Byte-compiled / optimized / DLL files
