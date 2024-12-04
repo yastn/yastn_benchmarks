@@ -25,7 +25,7 @@ We run this benchmark focusing on U(1)-symmetric tensors employing a workstation
 
 We first run the test on a single CPU core to compare the execution times of the three libraries, obtaining comparable performance. A systematic shift for YASTN is attributed to a different contraction strategy of an effective two-site Hamiltonian acting on a trial vector in Krylov eigenvalue solver. YASTN, in the current version, uses a generic contraction scheme that is optimal for single contraction and allows large physical spaces (e.g., appearing in PEPS contraction). The other two libraries employ a scheme with different contraction order, allowing for precomputation of part of the diagram that later repeats while building the Krylov space.
 
-Next, we run YASTN using NumPy and PyTorch backends across one and multiple cores and utilizing GPU. PyTorch tensors show systematic overhead visible for small bond dimensions and better use of parallelism in the limit of large bond dimensions. For CUDA (GPU) computation, we delegate the SVDs to the CPU due to the poor performance of SVD decomposition on the GPU.
+Next, we run YASTN using NumPy and PyTorch backends across one and multiple cores and utilizing GPU. PyTorch tensors show systematic overhead visible for small bond dimensions and better use of parallelism in the limit of large bond dimensions. For CUDA (GPU) computation, we delegate the SVDs to the CPU due to the poor performance of SVD decomposition on the GPU. Still, the timing of large bond-dimension sweeps employing GPU is dominated by the SVD.
 
 We thank TeNPy developer Johannes Hauschild for the discussions.
 
