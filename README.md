@@ -9,11 +9,11 @@ We follow a benchmark framework adopted by the authors of [TeNPy](https://github
 See, [TeNPy benchmarks](https://github.com/tenpy/tenpy_benchmarks) and [TeNPy and ITensor Comparisons](
 https://itensor.github.io/ITensorBenchmarks.jl/dev/tenpy_itensor/index.html).
 
-Following the installation of [YASTN](https://github.com/yastn/yastn), and cloning of this repository, our benchmark script can be run as
+After installing [YASTN](https://github.com/yastn/yastn) and cloning this repository, our benchmark script can be run as
 ```
 python bench_dmrg.py
 ```
-with a few control options available from the command line, see
+A few control options are available from the command line
 ```
 python bench_dmrg.py --help
 ```
@@ -23,12 +23,14 @@ We run this benchmark focusing on U(1)-symmetric tensors employing a workstation
 ![alt text](https://github.com/yastn/benchmarks/blob/main/results_dmrg/bench.png?raw=true)
 
 
-We first run the test on a single CPU core to compare the execution times of the three libraries, obtaining comparable performance. A systematic shift for YASTN is attributed to a different contraction strategy of an effective two-site Hamiltonian acting on a trial vector in Krylov eigenvalue solver. YASTN, in the current version, uses a generic contraction scheme that is optimal for single contraction and allows large physical spaces (e.g., appearing in PEPS contraction). The other two libraries employ a scheme with different contraction order, allowing for precomputation of part of the diagram that later repeats while building the Krylov space.
+We first run the test on a single CPU core to compare the execution times of the three libraries, obtaining comparable performance. A systematic shift for YASTN is attributed to a different contraction strategy of an effective two-site Hamiltonian acting on a trial vector in Krylov eigenvalue solver.
+YASTN, in version v1.1, uses a generic contraction scheme that is optimal for a single such contraction and allows large physical spaces (e.g., appearing in boundary-MPS PEPS contraction).
+The other two libraries employ a scheme with different contraction order, which allows one to precompute part of the diagram that repeats while building the Krylov space and can be reused.
 
-Next, we run YASTN using NumPy and PyTorch backends across one and multiple cores and utilizing GPU. PyTorch tensors show systematic overhead visible for small bond dimensions and better use of parallelism in the limit of large bond dimensions. For CUDA (GPU) computation, we delegate the SVDs to the CPU due to the poor performance of SVD decomposition on the GPU. Still, the timing of large bond-dimension sweeps employing GPU is dominated by the SVD.
+Next, we run YASTN using NumPy and PyTorch backends across one and multiple cores and utilizing GPU. PyTorch tensors show systematic overhead visible for small bond dimensions and better use of parallelism in the limit of large bond dimensions. For CUDA (GPU) computation, we delegate the SVDs to the CPU due to the poor performance of SVD decomposition on the GPU. Still, the timing of large bond-dimension sweeps employing GPU is dominated by the SVD in this example.
 
 We thank TeNPy developer Johannes Hauschild for the discussions.
 
 ## CTMRG contractions
 
-We collect core elements of CTMRG update for tensor sizes motivated by real-life applications described in [YASTN release article](https://arxiv.org/abs/2405.12196). See `.\bench_contractions.py` for details of the test framework, with tensor sizes gathered in `.\input_shapes\` folder.
+We collect core elements of CTMRG update for tensor sizes motivated by real-life applications described in [YASTN release article](https://arxiv.org/abs/2405.12196). See `.\bench_contractions.py` for details of the test framework, with symmetric tensor structures gathered in the folder `.\input_shapes\`.
