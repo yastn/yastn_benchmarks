@@ -35,7 +35,8 @@ def dmrg_Heisenberg(args):
     elif args.backend == 'torch':
         import yastn.backend.backend_torch as backend
     #
-    ops = yastn.operators.Spin1(sym=args.sym, backend=backend, default_device=args.device)
+    ops = yastn.operators.Spin1(sym=args.sym, backend=backend,
+                                default_device=args.device, tensordot_policy=args.policy)
     sp, sm, sz = ops.sp(), ops.sm(), ops.sz()
     #
     # Hamiltonian MPO
@@ -52,17 +53,19 @@ def dmrg_Heisenberg(args):
     #
     # DMRG parameters
     #
-    Ds = {0: 10, 2: 32, 4: 64, 6: 128, 8: 256, 10: 384, 12: 512, 14: 768, 16: 1024, 18: 1536, 20: 2048}  # sweep no.: dimension
+    Ds = {0: 10, 4: 32, 8: 64, 12: 128, 16: 256, 20: 384, 24: 512, 28: 768, 32: 1024, 36: 1536, 40: 2048}  # sweep no.: dimension
     opts_svd = {"D_total": Ds[0], 'svd_on_cpu': args.svd_on_cpu}  #, 'tol': 1e-14}
     opts_eigs = {'hermitian': True, 'ncv': 3, 'which': 'SR'}  # default opts_eigs in dmrg_; provided here to show them explicitly
-    dmrg = mps.dmrg_(psi, H, method='2site', iterator_step=1, max_sweeps=22, opts_svd=opts_svd, opts_eigs=opts_eigs)
+    method = yastn.Method('2site')
+
+    dmrg = mps.dmrg_(psi, H, method=method, iterator_step=1, max_sweeps=44, opts_svd=opts_svd, opts_eigs=opts_eigs, precompute=args.precompute)
     #
     # execute dmrg generator
     #
     ref_time_sweep = ref_time_total = time.time()
     for info in dmrg:
         wall_time = time.time() - ref_time_sweep
-        print(f"Sweep={info.sweeps:02d}; Energy={info.energy:4.12f}; D={max(psi.get_bond_dimensions()):4d}; time={wall_time:3.1f}")
+        print(f"Sweep={info.sweeps:02d}_{info.method}; Energy={info.energy:4.12f}; D={max(psi.get_bond_dimensions()):4d}; time={wall_time:3.1f}")
         ref_time_sweep  = time.time()
         if info.sweeps in Ds:
             opts_svd["D_total"] = Ds[info.sweeps]  # update D_total used by DMRG
@@ -84,8 +87,10 @@ if __name__ == "__main__":
     parser.add_argument("-backend", help='YASTN backend', type=str, default='np', choices=['np', 'torch'])
     parser.add_argument("-device", help='Torch backend allows using cuda (GPU).', type=str, default='cpu', choices=['cpu', 'cuda'])
     parser.add_argument("-svd_on_cpu", help='Force SVD decomposition to be performed on CPU.', dest='svd_on_cpu', action='store_true')
+    parser.add_argument("-precompute", help='Use contraction order allowing precomputaion of part of Heff2 diagram.', dest='precompute', action='store_true')
+    parser.add_argument("-policy", help='tensordot_policy.', type=str, default='no_fusion')
     parser.add_argument("-max_seconds",  help='Terminate too-long tests.', type=int, default=3600)
-    parser.add_argument("-num_threads", help='Specify the number of CPU cores.', type=str, default='none', choices=['none'] + [str(n) for n in range(1, 17)])
+    parser.add_argument("-num_threads", help='Specify the number of CPU cores.', type=str, default='none', choices=['none'] + [str(n) for n in range(1, 19)])
     args = parser.parse_args()
 
     if args.num_threads != 'none':

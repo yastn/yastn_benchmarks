@@ -19,14 +19,18 @@ import os
 from pathlib import Path
 import sys
 import timeit
+import tracemalloc
 
+def readable_size(size):
+    units = ('KB', 'MB', 'GB', 'TB')
+    size_list = [f'{int(size):,} B'] + [f'{int(size) / 1024 ** (i + 1):,.2f} {u}' for i, u in enumerate(units)]
+    return [size for size in size_list if not size.startswith('0.')][-1]
 
 def fname_output(model, fname, config):
     fpath = os.path.dirname(__file__)
-    path = Path(f"{fpath}/results/{model}/lru_cache={config['lru_cache']}/{config['backend']}/{config['device']}")
+    path = Path(f"{fpath}/results/{model}/policy={config['tensordot_policy']}/lru_cache={config['lru_cache']}/{config['backend']}/{config['device']}")
     path.mkdir(parents=True, exist_ok=True)
     return path / f"{fname.stem}.out"
-
 
 def run_bench(model, fname_out, config, repeat):
     """
@@ -47,6 +51,11 @@ def run_bench(model, fname_out, config, repeat):
                 return None
             print(task + "; times [seconds]", file=f)
             print(*(f"{t:.4f}" for t in times), file=f)
+            tracemalloc.start()
+            timeit.repeat(stmt='bench.' + task + '()', repeat=1, number=1, globals=locals())
+            current, peak =  tracemalloc.get_traced_memory()
+            print(f"memory: {readable_size(current)}, {readable_size(peak)}", file=f)
+            tracemalloc.stop()
 
         bench.print_properties(file=f)
         bench.final_cleanup()
@@ -56,10 +65,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch'])
     parser.add_argument("-device", type=str, default='cpu', choices=['cpu', 'cuda'])
+    parser.add_argument("-tensordot_policy", type=str, default='fuse_to_matrix', choices=['fuse_to_matrix', 'fuse_contracted', 'direct'])
     parser.add_argument("-no_lru_cache", dest='lru_cache', action='store_false', help="Yastn is using lru_cache to back up algebra of symmetries. Use this option to switch it off.")
     parser.add_argument("-stdout", dest='to_file', action='store_false', help="By default, write results to files in /results; Use this option to print to stdout.")
     parser.add_argument("-repeat", type=int, default=4)
-    parser.add_argument("-fname", type=str, default='*', help="Use glob to match basenames of json files in ./input_shapes")
+    parser.add_argument("-fname", type=str, default='Hubbard_U1xU1xZ2_d=4x4_D=25_chi=125', help="Use glob to match basenames of json files in ./input_shapes")
     parser.add_argument("-model", type=str, default='Ctm', help="Use 'args.model in model_class_name' to select models")
     parser.add_argument("-num_threads", type=str, default='none', choices=['none'] + [str(n) for n in range(1, 33)])
     args = parser.parse_args()
@@ -81,9 +91,9 @@ if __name__ == "__main__":
     # identify models and input files to run
     use_models = [model for model in models if args.model in model]
     fnames = glob.glob(os.path.join(os.path.dirname(__file__), "input_shapes/", args.fname + '.json'))
-    fnames = [Path(fname) for fname in fnames]
+    fnames = [Path(fname) for fname in sorted(fnames)]
 
-    config = {"backend": args.backend, "device": args.device, "lru_cache": args.lru_cache}
+    config = {"backend": args.backend, "device": args.device, "lru_cache": args.lru_cache, "tensordot_policy": args.tensordot_policy}
 
     # execute benchmarks
     for fname in fnames:

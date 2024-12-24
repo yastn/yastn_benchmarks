@@ -1,0 +1,57 @@
+The latest version of Julia in the `release` channel is 1.11.2+0.x64.linux.gnu. You currently have `1.10.4+0.x64.linux.gnu` installed. Run:
+
+  juliaup update
+
+in your terminal shell to install Julia 1.11.2+0.x64.linux.gnu and update the `release` channel to that version.
+LBTConfig([ILP64] libmkl_rt.so, [LP64] libmkl_rt.so)
+args = Dict{String, Any}("blas_num_threads" => 8, "max_seconds" => 10000.0, "conserve_qns" => true, "output_filename" => "")
+Using 8 BLAS threads
+conserve_qns = true
+use_sparse_mpo = true
+Splitting blocks of H (= making MPO sparse)
+After sweep 1 energy=-138.3239364971267  maxlinkdim=9 maxerr=0.00E+00 time=24.259
+After sweep 2 energy=-138.91372767714645  maxlinkdim=10 maxerr=6.00E-05 time=1.614
+After sweep 3 energy=-138.91479779569642  maxlinkdim=10 maxerr=5.64E-05 time=0.719
+After sweep 4 energy=-138.9148019259116  maxlinkdim=10 maxerr=5.66E-05 time=0.718
+After sweep 5 energy=-138.94003151450605  maxlinkdim=32 maxerr=1.02E-07 time=1.429
+After sweep 6 energy=-138.94004274641196  maxlinkdim=32 maxerr=1.26E-07 time=1.329
+After sweep 7 energy=-138.94004278612908  maxlinkdim=32 maxerr=1.17E-07 time=1.344
+After sweep 8 energy=-138.94004281224824  maxlinkdim=32 maxerr=1.15E-07 time=1.343
+After sweep 9 energy=-138.94008554914998  maxlinkdim=64 maxerr=1.43E-09 time=1.699
+After sweep 10 energy=-138.94008557552343  maxlinkdim=64 maxerr=1.28E-09 time=2.075
+After sweep 11 energy=-138.94008557534357  maxlinkdim=64 maxerr=1.28E-09 time=1.837
+After sweep 12 energy=-138.94008557519064  maxlinkdim=64 maxerr=1.28E-09 time=1.866
+After sweep 13 energy=-138.94008614043474  maxlinkdim=128 maxerr=6.81E-12 time=3.140
+After sweep 14 energy=-138.94008614065226  maxlinkdim=128 maxerr=6.07E-12 time=3.865
+After sweep 15 energy=-138.9400861406525  maxlinkdim=128 maxerr=6.04E-12 time=3.680
+After sweep 16 energy=-138.94008614065228  maxlinkdim=128 maxerr=6.04E-12 time=3.668
+After sweep 17 energy=-138.94008614352197  maxlinkdim=256 maxerr=1.32E-14 time=7.254
+After sweep 18 energy=-138.94008614352296  maxlinkdim=256 maxerr=1.20E-14 time=8.506
+After sweep 19 energy=-138.94008614352205  maxlinkdim=256 maxerr=1.19E-14 time=8.519
+After sweep 20 energy=-138.9400861435225  maxlinkdim=256 maxerr=1.19E-14 time=8.512
+After sweep 21 energy=-138.9400861435288  maxlinkdim=384 maxerr=3.68E-16 time=13.474
+After sweep 22 energy=-138.94008614352975  maxlinkdim=384 maxerr=3.49E-16 time=15.026
+After sweep 23 energy=-138.94008614352987  maxlinkdim=384 maxerr=3.49E-16 time=15.015
+After sweep 24 energy=-138.94008614352958  maxlinkdim=384 maxerr=3.49E-16 time=14.694
+After sweep 25 energy=-138.94008614353052  maxlinkdim=512 maxerr=2.37E-17 time=21.879
+After sweep 26 energy=-138.9400861435308  maxlinkdim=512 maxerr=3.48E-17 time=23.716
+After sweep 27 energy=-138.9400861435299  maxlinkdim=512 maxerr=4.01E-17 time=23.339
+After sweep 28 energy=-138.94008614352933  maxlinkdim=512 maxerr=4.17E-17 time=23.737
+After sweep 29 energy=-138.9400861435302  maxlinkdim=768 maxerr=1.94E-18 time=42.034
+After sweep 30 energy=-138.94008614353015  maxlinkdim=768 maxerr=2.44E-18 time=48.493
+After sweep 31 energy=-138.94008614352995  maxlinkdim=768 maxerr=4.11E-18 time=47.964
+After sweep 32 energy=-138.94008614352924  maxlinkdim=768 maxerr=2.85E-18 time=48.662
+After sweep 33 energy=-138.9400861435299  maxlinkdim=1024 maxerr=2.24E-19 time=89.715
+After sweep 34 energy=-138.94008614353064  maxlinkdim=1024 maxerr=1.45E-19 time=92.144
+After sweep 35 energy=-138.94008614352973  maxlinkdim=1024 maxerr=4.12E-20 time=98.213
+After sweep 36 energy=-138.94008614353052  maxlinkdim=1024 maxerr=1.25E-19 time=94.622
+After sweep 37 energy=-138.94008614352973  maxlinkdim=1536 maxerr=1.24E-22 time=259.081
+After sweep 38 energy=-138.9400861435308  maxlinkdim=1536 maxerr=2.34E-22 time=356.503
+After sweep 39 energy=-138.9400861435309  maxlinkdim=1536 maxerr=8.99E-23 time=362.074
+After sweep 40 energy=-138.94008614353007  maxlinkdim=1536 maxerr=1.78E-22 time=363.284
+After sweep 41 energy=-138.94008614352978  maxlinkdim=2048 maxerr=1.56E-24 time=716.203
+After sweep 42 energy=-138.94008614352938  maxlinkdim=2048 maxerr=1.65E-24 time=808.109
+After sweep 43 energy=-138.94008614352987  maxlinkdim=2048 maxerr=1.63E-24 time=812.766
+After sweep 44 energy=-138.9400861435301  maxlinkdim=2048 maxerr=1.64E-24 time=809.298
+stopping dmrg after sweep 44
+total time 5303.371417023

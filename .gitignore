@@ -2,6 +2,8 @@
 results/
 peps-torch
 *.cprof
+results_dmrg/dump
+tests/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

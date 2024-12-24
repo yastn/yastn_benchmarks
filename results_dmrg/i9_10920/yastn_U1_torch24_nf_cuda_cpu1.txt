@@ -1,0 +1,44 @@
+Sweep=01_2site; Energy=-138.323936497102; D=   9; time=6.1
+Sweep=02_2site; Energy=-138.913727677114; D=  10; time=11.3
+Sweep=03_2site; Energy=-138.914797795668; D=  10; time=10.8
+Sweep=04_2site; Energy=-138.914801925870; D=  10; time=10.7
+Sweep=05_2site; Energy=-138.940031624947; D=  32; time=15.4
+Sweep=06_2site; Energy=-138.940042782504; D=  32; time=17.5
+Sweep=07_2site; Energy=-138.940042837972; D=  32; time=17.4
+Sweep=08_2site; Energy=-138.940042863850; D=  32; time=17.4
+Sweep=09_2site; Energy=-138.940085549137; D=  64; time=18.8
+Sweep=10_2site; Energy=-138.940085575493; D=  64; time=18.7
+Sweep=11_2site; Energy=-138.940085575219; D=  64; time=18.7
+Sweep=12_2site; Energy=-138.940085575170; D=  64; time=18.6
+Sweep=13_2site; Energy=-138.940086140404; D= 128; time=23.9
+Sweep=14_2site; Energy=-138.940086140634; D= 128; time=25.7
+Sweep=15_2site; Energy=-138.940086140622; D= 128; time=25.3
+Sweep=16_2site; Energy=-138.940086140634; D= 128; time=25.3
+Sweep=17_2site; Energy=-138.940086143490; D= 256; time=28.8
+Sweep=18_2site; Energy=-138.940086143494; D= 256; time=30.3
+Sweep=19_2site; Energy=-138.940086143496; D= 256; time=29.5
+Sweep=20_2site; Energy=-138.940086143499; D= 256; time=28.8
+Sweep=21_2site; Energy=-138.940086143521; D= 384; time=34.0
+Sweep=22_2site; Energy=-138.940086143505; D= 384; time=34.9
+Sweep=23_2site; Energy=-138.940086143505; D= 384; time=33.2
+Sweep=24_2site; Energy=-138.940086143506; D= 384; time=32.5
+Sweep=25_2site; Energy=-138.940086143506; D= 512; time=42.5
+Sweep=26_2site; Energy=-138.940086143506; D= 512; time=45.8
+Sweep=27_2site; Energy=-138.940086143509; D= 512; time=46.0
+Sweep=28_2site; Energy=-138.940086143495; D= 512; time=45.6
+Sweep=29_2site; Energy=-138.940086143517; D= 768; time=59.7
+Sweep=30_2site; Energy=-138.940086143493; D= 768; time=65.7
+Sweep=31_2site; Energy=-138.940086143506; D= 768; time=65.7
+Sweep=32_2site; Energy=-138.940086143515; D= 768; time=65.8
+Sweep=33_2site; Energy=-138.940086143499; D=1024; time=90.2
+Sweep=34_2site; Energy=-138.940086143493; D=1024; time=100.8
+Sweep=35_2site; Energy=-138.940086143489; D=1024; time=100.3
+Sweep=36_2site; Energy=-138.940086143510; D=1024; time=100.0
+Sweep=37_2site; Energy=-138.940086143496; D=1536; time=192.4
+Sweep=38_2site; Energy=-138.940086143486; D=1536; time=242.8
+Sweep=39_2site; Energy=-138.940086143501; D=1536; time=239.2
+Sweep=40_2site; Energy=-138.940086143505; D=1536; time=238.8
+Sweep=41_2site; Energy=-138.940086143483; D=2048; time=394.3
+Sweep=42_2site; Energy=-138.940086143504; D=2048; time=469.5
+Sweep=43_2site; Energy=-138.940086143501; D=2048; time=469.6
+Sweep=44_2site; Energy=-138.940086143495; D=2048; time=469.5
