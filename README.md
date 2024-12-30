@@ -22,13 +22,12 @@ We run this benchmark focusing on U(1)-symmetric tensors employing a workstation
 
 ![alt text](https://github.com/yastn/benchmarks/blob/main/results_dmrg/bench.png?raw=true)
 
+We first run the test on a single CPU core to compare the execution times of the three libraries, obtaining comparable performance for the corresponding simulation setups. Those employ package versions are: YASTN v1.2, TeNPy v1.0.3,  ITensors v0.6.16.
 
-We first run the test on a single CPU core to compare the execution times of the three libraries, obtaining comparable performance for the same simulation setups.
-
-Next, we run YASTN using NumPy and PyTorch backends across one and multiple cores and utilizing GPU. PyTorch tensors show systematic overhead visible for small bond dimensions, which becomes marginal for larger bond dimensions. For CUDA (GPU) computation, we delegate the SVDs to the CPU due to the poor performance of SVD decomposition on the GPU. Still, the timing of large bond-dimension sweeps employing GPU and multiple-core CPU is dominated by the SVD in this example.
+Next, we run YASTN using NumPy and PyTorch backends across one and multiple cores and utilizing GPU. PyTorch tensors show systematic overhead visible for small bond dimensions, which becomes marginal for larger bond dimensions. For CUDA (GPU) computation, we delegate the SVDs to the CPU due to the poor performance of SVD decomposition on the GPU. Still, in this example, the timings of large bond-dimension sweeps employing GPU and multiple-core CPUs are dominated by the SVD.
 
 We thank TeNPy developer Johannes Hauschild for the discussions.
 
 ## CTMRG contractions
 
-We collect core elements of CTMRG update for tensor sizes motivated by real-life applications described in [YASTN release article](https://arxiv.org/abs/2405.12196). See `.\bench_contractions.py` for details of the test framework, with symmetric tensor structures gathered in the folder `.\input_shapes\`.
+We collect core elements of CTMRG update for tensor sizes motivated by the applications described in [YASTN release article](https://arxiv.org/abs/2405.12196). See `.\bench_contractions.py` for details of the test framework, with symmetric tensor structures gathered in the folder `.\input_shapes\`.

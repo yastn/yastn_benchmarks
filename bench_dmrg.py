@@ -67,8 +67,10 @@ def dmrg_Heisenberg(args):
         wall_time = time.time() - ref_time_sweep
         print(f"Sweep={info.sweeps:02d}_{info.method}; Energy={info.energy:4.12f}; D={max(psi.get_bond_dimensions()):4d}; time={wall_time:3.1f}")
         ref_time_sweep  = time.time()
+
         if info.sweeps in Ds:
             opts_svd["D_total"] = Ds[info.sweeps]  # update D_total used by DMRG
+        # method.update_('1site' if info.sweeps % 4 == 3 else '2site')  # can change method inside dmrg iterator
 
         total_time = time.time() - ref_time_total
         if total_time  > args.max_seconds:

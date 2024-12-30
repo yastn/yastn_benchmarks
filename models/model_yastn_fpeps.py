@@ -15,7 +15,8 @@
 # ==============================================================================
 """ Contractions for benchmarks: yastn with ctm tensors with no legs fused. """
 from .model_yastn_basic import CtmBenchYastnBasic
-import yastn.tn.fpeps as fpeps
+import yastn
+from yastn.tn.fpeps import DoublePepsTensor
 
 
 class CtmBenchYastnfpeps(CtmBenchYastnBasic):
@@ -26,7 +27,7 @@ class CtmBenchYastnfpeps(CtmBenchYastnBasic):
         self.tensors["a"] = self.tensors["a"].fuse_legs(axes=((1, 2), (3, 4), 0))
         self.tensors["Tt"] = self.tensors["Tt"].fuse_legs(axes=(0, (1, 2), 3))
         self.tensors["Tr"] = self.tensors["Tr"].fuse_legs(axes=(0, (1, 2), 3))
-        self.tensors["A"] = fpeps.DoublePepsTensor(self.tensors["a"], self.tensors["a"])
+        self.tensors["A"] = DoublePepsTensor(self.tensors["a"], self.tensors["a"])
 
     def print_header(self, file=None):
         print("Attach a and a* sequentially; Fusion of some legs in input and intermidiate tensors; Used in yastn.tn.fpeps.", file=file)
@@ -43,7 +44,7 @@ class CtmBenchYastnfpeps(CtmBenchYastnBasic):
                 (3)  (2)
         """
         A, Tt, Tr, Ctr = [self.tensors[k] for k in ["A", "Tt", "Tr", "Ctr"]]
-        self.tensors["C2x2tr"] = A._attach_30(Tt @ (Ctr @ Tr))
+        self.tensors["C2x2tr"] = yastn.tensordot(Tt @ (Ctr @ Tr), A, axes=((1, 2), (0, 3)))
 
     def fuse_enlarged_corner(self):
-        self.tensors["C2x2mat"] = self.tensors["C2x2tr"].fuse_legs(axes=((0, 1), (2, 3)))
+        self.tensors["C2x2mat"] = self.tensors["C2x2tr"].fuse_legs(axes=((0, 2), (1, 3)))

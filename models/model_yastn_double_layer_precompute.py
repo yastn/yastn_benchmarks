@@ -19,7 +19,7 @@ from .model_yastn_basic import CtmBenchYastnBasic
 import yastn
 
 
-class CtmBenchYastnPrecompute(CtmBenchYastnBasic):
+class CtmBenchYastnDLPrecompute(CtmBenchYastnBasic):
 
     def __init__(self, *args):
         super().__init__(*args)

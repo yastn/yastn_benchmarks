@@ -26,9 +26,9 @@ def readable_size(size):
     size_list = [f'{int(size):,} B'] + [f'{int(size) / 1024 ** (i + 1):,.2f} {u}' for i, u in enumerate(units)]
     return [size for size in size_list if not size.startswith('0.')][-1]
 
-def fname_output(model, fname, config):
+def fname_output(model, fname, args):
     fpath = os.path.dirname(__file__)
-    path = Path(f"{fpath}/results/{model}/policy={config['tensordot_policy']}/lru_cache={config['lru_cache']}/{config['backend']}/{config['device']}")
+    path = Path(f"{fpath}/results/{model}/num_threads={args.num_threads}/policy={args.tensordot_policy}/lru_cache={args.lru_cache}/{args.backend}/{args.device}")
     path.mkdir(parents=True, exist_ok=True)
     return path / f"{fname.stem}.out"
 
@@ -44,18 +44,19 @@ def run_bench(model, fname_out, config, repeat):
         bench.print_header(file=f)
 
         for task in bench.bench_pipeline:
-            try:
-                times = timeit.repeat(stmt='bench.' + task + '()', repeat=repeat, number=1, globals=locals())
-            except AssertionError:
-                print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
-                return None
-            print(task + "; times [seconds]", file=f)
-            print(*(f"{t:.4f}" for t in times), file=f)
-            tracemalloc.start()
-            timeit.repeat(stmt='bench.' + task + '()', repeat=1, number=1, globals=locals())
-            current, peak =  tracemalloc.get_traced_memory()
-            print(f"memory: {readable_size(current)}, {readable_size(peak)}", file=f)
-            tracemalloc.stop()
+            # if 'svd' not in task:
+                try:
+                    times = timeit.repeat(stmt='bench.' + task + '()', repeat=repeat, number=1, globals=locals())
+                except AssertionError:
+                    print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
+                    return None
+                print(task + "; times [seconds]", file=f)
+                print(*(f"{t:.4f}" for t in times), file=f)
+                tracemalloc.start()
+                timeit.repeat(stmt='bench.' + task + '()', repeat=1, number=1, globals=locals())
+                current, peak =  tracemalloc.get_traced_memory()
+                print(f"memory: {readable_size(current)}, {readable_size(peak)}", file=f)
+                tracemalloc.stop()
 
         bench.print_properties(file=f)
         bench.final_cleanup()
@@ -65,7 +66,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch'])
     parser.add_argument("-device", type=str, default='cpu', choices=['cpu', 'cuda'])
-    parser.add_argument("-tensordot_policy", type=str, default='fuse_to_matrix', choices=['fuse_to_matrix', 'fuse_contracted', 'direct'])
+    parser.add_argument("-tensordot_policy", type=str, default='no_fusion', choices=['fuse_to_matrix', 'fuse_contracted', 'no_fusion'])
     parser.add_argument("-no_lru_cache", dest='lru_cache', action='store_false', help="Yastn is using lru_cache to back up algebra of symmetries. Use this option to switch it off.")
     parser.add_argument("-stdout", dest='to_file', action='store_false', help="By default, write results to files in /results; Use this option to print to stdout.")
     parser.add_argument("-repeat", type=int, default=4)
@@ -82,11 +83,11 @@ if __name__ == "__main__":
         os.environ["NUMEXPR_NUM_THREADS"] = args.num_threads
 
     # import models here to set num_threads before importing backends
-    from models import CtmBenchYastnBasic, CtmBenchYastnDL, CtmBenchYastnfpeps, CtmBenchYastnPrecompute
+    from models import CtmBenchYastnBasic, CtmBenchYastnDL, CtmBenchYastnfpeps, CtmBenchYastnDLPrecompute
     models = {"CtmBenchYastnDL": CtmBenchYastnDL,
               "CtmBenchYastnBasic": CtmBenchYastnBasic,
               "CtmBenchYastnfpeps": CtmBenchYastnfpeps,
-              "CtmBenchYastnPrecompute": CtmBenchYastnPrecompute}
+              "CtmBenchYastnDLPrecompute": CtmBenchYastnDLPrecompute}
 
     # identify models and input files to run
     use_models = [model for model in models if args.model in model]
@@ -98,5 +99,5 @@ if __name__ == "__main__":
     # execute benchmarks
     for fname in fnames:
         for model in use_models:
-            fname_out = fname_output(model, fname, config) if args.to_file else None
+            fname_out = fname_output(model, fname, args) if args.to_file else None
             run_bench(models[model], fname_out, config, args.repeat)
