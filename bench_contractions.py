@@ -32,7 +32,7 @@ def fname_output(model, fname, args):
     path.mkdir(parents=True, exist_ok=True)
     return path / f"{fname.stem}.out"
 
-def run_bench(model, fname_out, config, repeat):
+def run_bench(model, fname_out, config, repeat, pipeline):
     """
     Run a single benchmark and output results to file or to stdout
     """
@@ -43,7 +43,12 @@ def run_bench(model, fname_out, config, repeat):
 
         bench.print_header(file=f)
 
-        for task in bench.bench_pipeline:
+        tasks= bench.bench_pipeline
+        if len(pipeline)>0 and not ("all" in pipeline):  
+            assert all([ (t in bench.bench_pipeline) for t in pipeline ]), \
+                f"Some provided pipeline tasks are not in the model's benchmark pipeline. {tasks}"
+            tasks= [ t for t in bench.bench_pipeline if (t in pipeline) ] 
+        for task in tasks:
             # if 'svd' not in task:
                 try:
                     times = timeit.repeat(stmt='bench.' + task + '()', repeat=repeat, number=1, globals=locals())
@@ -64,7 +69,8 @@ def run_bench(model, fname_out, config, repeat):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch'])
+    parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch', 'torch_cpp'])
+    parser.add_argument("-dtype", type=str, default='float64', choices=['float32', 'float64', 'complex64', 'complex128'])
     parser.add_argument("-device", type=str, default='cpu', choices=['cpu', 'cuda'])
     parser.add_argument("-tensordot_policy", type=str, default='no_fusion', choices=['fuse_to_matrix', 'fuse_contracted', 'no_fusion'])
     parser.add_argument("-no_lru_cache", dest='lru_cache', action='store_false', help="Yastn is using lru_cache to back up algebra of symmetries. Use this option to switch it off.")
@@ -72,6 +78,13 @@ if __name__ == "__main__":
     parser.add_argument("-repeat", type=int, default=4)
     parser.add_argument("-fname", type=str, default='Hubbard_U1xU1xZ2_d=4x4_D=25_chi=125', help="Use glob to match basenames of json files in ./input_shapes")
     parser.add_argument("-model", type=str, default='Ctm', help="Use 'args.model in model_class_name' to select models")
+    parser.add_argument(
+        "-pipeline",
+        nargs="*",
+        choices=["all", "precompute_A_mat", "enlarged_corner", "fuse_enlarged_corner", "svd_enlarged_corner"],
+        default=["all"],
+        help="Pipeline steps to run (any combination of the choices); provide multiple values separated by space.",
+    )
     parser.add_argument("-num_threads", type=str, default='none', choices=['none'] + [str(n) for n in range(1, 33)])
     args = parser.parse_args()
 
@@ -94,10 +107,11 @@ if __name__ == "__main__":
     fnames = glob.glob(os.path.join(os.path.dirname(__file__), "input_shapes/", args.fname + '.json'))
     fnames = [Path(fname) for fname in sorted(fnames)]
 
-    config = {"backend": args.backend, "device": args.device, "lru_cache": args.lru_cache, "tensordot_policy": args.tensordot_policy}
+    config = {"backend": args.backend, "default_device": args.device, "default_dtype": args.dtype,
+              "lru_cache": args.lru_cache, "tensordot_policy": args.tensordot_policy}
 
     # execute benchmarks
     for fname in fnames:
         for model in use_models:
             fname_out = fname_output(model, fname, args) if args.to_file else None
-            run_bench(models[model], fname_out, config, args.repeat)
+            run_bench(models[model], fname_out, config, args.repeat, args.pipeline)

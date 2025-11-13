@@ -30,6 +30,7 @@ class CtmBenchYastnBasic(CtmBenchParent):
 
         self.config = yastn.make_config(sym=self.input["symmetry"], **config)
         self.config.backend.random_seed(seed=0)  # makes outputs of different models comparable
+        self.use_nvtx= ("torch" in self.config.backend.BACKEND_ID) and self.config.backend.cuda_is_available()
 
         legs = {k: yastn.Leg(self.config, s=v['signature'], t=v['charges'], D=v['dimensions'])
                 for k, v in self.input.items() if "leg" in k}
@@ -85,15 +86,21 @@ class CtmBenchYastnBasic(CtmBenchParent):
              e   f              d
         """
         a, Tt, Tr, Ctr = [self.tensors[k] for k in ["a", "Tt", "Tr", "Ctr"]]
+        if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"enlarged_corner")
         self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd,GCbeD,GEcfF->abcdef',
                                                 Tt, Ctr, Tr, a, a.conj(),
                                                 order='ABCDEFG')
+        if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
 
     def fuse_enlarged_corner(self):
+        if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"fuse_legs")
         self.tensors["C2x2mat"] = self.tensors["C2x2tr"].fuse_legs(axes=((0, 1, 2), (3, 4, 5)))
+        if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
 
     def svd_enlarged_corner(self):
+        if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"svd_enlarged_corner")
         self.tensors["U"], self.tensors["S"], self.tensors["V"] = self.tensors["C2x2mat"].svd()
+        if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
 
     def final_cleanup(self):
         yastn.clear_cache()  # yastn is using lru_cache to store contraction logic
