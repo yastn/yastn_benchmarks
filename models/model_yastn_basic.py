@@ -92,6 +92,34 @@ class CtmBenchYastnBasic(CtmBenchParent):
                                                 order='ABCDEFG')
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
 
+    def enlarged_corner_ctm(self):
+        r"""
+        Contract the network
+
+        a(0-)--Tt--(3+)A(0-)--Ctr
+              / |              |
+             (1+)(2-)         (1+)
+             C   E             B
+             |   |            (0-)
+        b----a---|-----D(1+)---Tr
+             | G |            / |
+        c----|---a*----F(2-)-/  |
+             |   |            (3+)
+             e   f              d
+        """
+        a, Tt, Tr, Ctr = [self.tensors[k] for k in ["a", "Tt", "Tr", "Ctr"]]
+        # pre-fuse Tt and Tr ?
+        if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"enlarged_corner")
+        self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd->aCEDFd', Tt, Ctr, Tr,
+                                                order='AB')
+        self.tensors["C2x2tr"] = yastn.fuse_legs(self.tensors["C2x2tr"], axes=(1,2, (0,5), 3, 4))
+        self.tensors["C2x2tr"] = yastn.einsum('CExDF,GCbeD,GEcfF->xbcef',
+                                                self.tensors["C2x2tr"], a, a.conj(),
+                                                order='CDGEF') 
+        self.tensors["C2x2tr"] = yastn.unfuse_legs(self.tensors["C2x2tr"], axes=0)
+        self.tensors["C2x2tr"] = self.tensors["C2x2tr"].transpose(axes=(0,2,3,1,4,5))
+        if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
+
     def fuse_enlarged_corner(self):
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"fuse_legs")
         self.tensors["C2x2mat"] = self.tensors["C2x2tr"].fuse_legs(axes=((0, 1, 2), (3, 4, 5)))

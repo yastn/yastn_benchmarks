@@ -26,7 +26,8 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
         Read tensors legs and other information into dictionary self.input
         """
 
-        self.bench_pipeline = ["enlarged_corner",
+        self.bench_pipeline = ["enlarged_corner_ctm",
+                               "enlarged_corner",
                                "fuse_enlarged_corner",
                                "svd_enlarged_corner"]
 
@@ -46,6 +47,20 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
         print(" Fill-in contractions. ", file=file)
 
     def enlarged_corner(self):
+        r"""
+        Contract the network
+
+        -----Tt---Ctr
+            / |    |
+           |  |    |
+        ---a--|----Tr
+           |\ |   /|
+        ---|--a*-/ |
+           |  |    |
+        """
+        self.tensors["C2x2tr"] = None
+
+    def enlarged_corner_ctm(self):
         r"""
         Contract the network
 
@@ -81,3 +96,4 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
     def final_cleanup(self):
         r""" For operations done after executing benchmarks """
         pass
+
