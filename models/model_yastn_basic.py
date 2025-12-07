@@ -65,6 +65,11 @@ class CtmBenchYastnBasic(CtmBenchParent):
         print("Cache info", file=file)  # auxiliary information from lru_cache
         for rec in yastn.get_cache_info().items():
             print(*rec, file=file)
+
+        if self.config.backend.BACKEND_ID in ["torch_cpp",] and self.config.backend.cuda_is_available():
+            print("", file=file)
+            print("cutensor cache stats: "+str(list(yastn.backend.backend_torch_cpp.cutensor_cache_stats().values())), file=file)
+            
         print("", file=file)
         for k, v in self.tensors.items():
             print(f"{k} tensor properties:", file=file)
