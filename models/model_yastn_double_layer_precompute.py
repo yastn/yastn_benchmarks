@@ -21,8 +21,8 @@ import yastn
 
 class CtmBenchYastnDLPrecompute(CtmBenchYastnBasic):
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.bench_pipeline = ["precompute_A_mat",
                                "enlarged_corner",
                                "fuse_enlarged_corner",
@@ -31,14 +31,14 @@ class CtmBenchYastnDLPrecompute(CtmBenchYastnBasic):
     def print_header(self, file=None):
         print("Form double-layer A tensor on the fly; No fusion in building tensors.", file=file)
 
-    def precompute_A_mat(self):
+    def precompute_A_mat(self, **kwargs):
         assert self.allow_explicit_double_layer
         a = self.tensors["a"]
         tmp = yastn.einsum('Gabcd,Gefgh->abcdefgh', a, a.conj(), order='G')
         tmp = yastn.fuse_legs(tmp, axes=((0, 4, 3, 7), (1, 5, 2, 6)))
         self.tensors["Amat"] = tmp
 
-    def enlarged_corner(self):
+    def enlarged_corner(self, **kwargs):
         Amat, Tt, Tr, Ctr = [self.tensors[k] for k in ["Amat", "Tt", "Tr", "Ctr"]]
         tmp = yastn.einsum('abcA,AB,Bdef->abcdef', Tt, Ctr, Tr, order="AB")
         tmp = tmp.fuse_legs(axes=((0, 5), (1, 2, 3, 4)))
@@ -46,5 +46,5 @@ class CtmBenchYastnDLPrecompute(CtmBenchYastnBasic):
         tmp = tmp.unfuse_legs(axes=(0, 1))
         self.tensors["C2x2tr"] = tmp
 
-    def fuse_enlarged_corner(self):
+    def fuse_enlarged_corner(self, **kwargs):
         self.tensors["C2x2mat"] = self.tensors["C2x2tr"].fuse_legs(axes=((0, 2, 3), (1, 4, 5)))

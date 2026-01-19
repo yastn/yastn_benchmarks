@@ -1,5 +1,6 @@
 # Benchmark results
 results/
+results_ctm/
 peps-torch
 *.cprof
 results_dmrg/dump

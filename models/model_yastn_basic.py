@@ -21,7 +21,7 @@ import yastn
 
 class CtmBenchYastnBasic(CtmBenchParent):
 
-    def __init__(self, fname, config):
+    def __init__(self, fname, config, **kwargs):
         """ Initialize tensors for contraction. """
         super().__init__(fname)
 
@@ -69,13 +69,13 @@ class CtmBenchYastnBasic(CtmBenchParent):
         if self.config.backend.BACKEND_ID in ["torch_cpp",] and self.config.backend.cuda_is_available():
             print("", file=file)
             print("cutensor cache stats: "+str(list(yastn.backend.backend_torch_cpp.cutensor_cache_stats().values())), file=file)
-            
+
         print("", file=file)
         for k, v in self.tensors.items():
             print(f"{k} tensor properties:", file=file)
             v.print_properties(file=file)
 
-    def enlarged_corner(self):
+    def enlarged_corner(self, fuse=False, **kwargs):
         r"""
         Contract the network
 
@@ -92,45 +92,27 @@ class CtmBenchYastnBasic(CtmBenchParent):
         """
         a, Tt, Tr, Ctr = [self.tensors[k] for k in ["a", "Tt", "Tr", "Ctr"]]
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"enlarged_corner")
-        self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd,GCbeD,GEcfF->abcdef',
+        if fuse:
+            self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd->aCEDFd', Tt, Ctr, Tr,
+                                                    order='AB')
+            self.tensors["C2x2tr"] = yastn.fuse_legs(self.tensors["C2x2tr"], axes=(1,2, (0,5), 3, 4))
+            self.tensors["C2x2tr"] = yastn.einsum('CExDF,GCbeD,GEcfF->xbcef',
+                                                    self.tensors["C2x2tr"], a, a.conj(),
+                                                    order='CDGEF')
+            self.tensors["C2x2tr"] = yastn.unfuse_legs(self.tensors["C2x2tr"], axes=0)
+            self.tensors["C2x2tr"] = self.tensors["C2x2tr"].transpose(axes=(0,2,3,1,4,5))
+        else:
+            self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd,GCbeD,GEcfF->abcdef',
                                                 Tt, Ctr, Tr, a, a.conj(),
                                                 order='ABCDEFG')
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
 
-    def enlarged_corner_ctm(self):
-        r"""
-        Contract the network
-
-        a(0-)--Tt--(3+)A(0-)--Ctr
-              / |              |
-             (1+)(2-)         (1+)
-             C   E             B
-             |   |            (0-)
-        b----a---|-----D(1+)---Tr
-             | G |            / |
-        c----|---a*----F(2-)-/  |
-             |   |            (3+)
-             e   f              d
-        """
-        a, Tt, Tr, Ctr = [self.tensors[k] for k in ["a", "Tt", "Tr", "Ctr"]]
-        # pre-fuse Tt and Tr ?
-        if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"enlarged_corner")
-        self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd->aCEDFd', Tt, Ctr, Tr,
-                                                order='AB')
-        self.tensors["C2x2tr"] = yastn.fuse_legs(self.tensors["C2x2tr"], axes=(1,2, (0,5), 3, 4))
-        self.tensors["C2x2tr"] = yastn.einsum('CExDF,GCbeD,GEcfF->xbcef',
-                                                self.tensors["C2x2tr"], a, a.conj(),
-                                                order='CDGEF') 
-        self.tensors["C2x2tr"] = yastn.unfuse_legs(self.tensors["C2x2tr"], axes=0)
-        self.tensors["C2x2tr"] = self.tensors["C2x2tr"].transpose(axes=(0,2,3,1,4,5))
-        if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
-
-    def fuse_enlarged_corner(self):
+    def fuse_enlarged_corner(self, **kwargs):
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"fuse_legs")
         self.tensors["C2x2mat"] = self.tensors["C2x2tr"].fuse_legs(axes=((0, 1, 2), (3, 4, 5)))
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
 
-    def svd_enlarged_corner(self):
+    def svd_enlarged_corner(self, **kwargs):
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"svd_enlarged_corner")
         self.tensors["U"], self.tensors["S"], self.tensors["V"] = self.tensors["C2x2mat"].svd()
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()

@@ -21,10 +21,9 @@ from yastn.tn.fpeps import DoublePepsTensor
 
 class CtmBenchYastnfpeps(CtmBenchYastnBasic):
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         """ Initialize tensors for contraction. """
-        super().__init__(*args)
-        # self.tensors["a"] = self.tensors["a"].fuse_legs(axes=((1, 2), (3, 4), 0))
+        super().__init__(*args, **kwargs)
         self.tensors["a"] = self.tensors["a"].transpose(axes=(1, 2, 3, 4, 0))
         self.tensors["Tt"] = self.tensors["Tt"].fuse_legs(axes=(0, (1, 2), 3))
         self.tensors["Tr"] = self.tensors["Tr"].fuse_legs(axes=(0, (1, 2), 3))
@@ -33,7 +32,7 @@ class CtmBenchYastnfpeps(CtmBenchYastnBasic):
     def print_header(self, file=None):
         print("Attach a and a* sequentially; Fusion of some legs in the input and intermediate tensors; Used in yastn.tn.fpeps.", file=file)
 
-    def enlarged_corner(self):
+    def enlarged_corner(self, **kwargs):
         r"""
         Contract the network
 
@@ -49,5 +48,5 @@ class CtmBenchYastnfpeps(CtmBenchYastnBasic):
         self.tensors["C2x2tr"] = yastn.tensordot(Tt @ (Ctr @ Tr), A, axes=((1, 2), (0, 3)))
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
 
-    def fuse_enlarged_corner(self):
+    def fuse_enlarged_corner(self, **kwargs):
         self.tensors["C2x2mat"] = self.tensors["C2x2tr"].fuse_legs(axes=((0, 2), (1, 3)))

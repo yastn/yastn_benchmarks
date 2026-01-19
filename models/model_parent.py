@@ -21,20 +21,17 @@ double_layer_D_limit = {"dense": 16, "Z2": 18, "U1": 20, "U1xU1": 25, "U1xU1xZ2"
 
 class CtmBenchParent(metaclass=abc.ABCMeta):
 
-    def __init__(self, fname, *args):
+    def __init__(self, fname, **kwargs):
         """
         Read tensors legs and other information into dictionary self.input
         """
 
-        self.bench_pipeline = ["enlarged_corner_ctm",
-                               "enlarged_corner",
+        self.bench_pipeline = ["enlarged_corner",
                                "fuse_enlarged_corner",
                                "svd_enlarged_corner"]
 
         with open(fname, "r", encoding='utf-8') as f:
             self.input = json.load(f)
-
-        self.tensors = {}
 
         Ds = [sum(self.input[dirn]["dimensions"]) for dirn in ["a_leg_t", "a_leg_l", "a_leg_b", "a_leg_r"]]
         D4 = Ds[0] * Ds[1] * Ds[2] * Ds[3]
@@ -46,7 +43,7 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
     def print_properties(self, file=None):
         print(" Fill-in contractions. ", file=file)
 
-    def enlarged_corner(self):
+    def enlarged_corner(self, **kwargs):
         r"""
         Contract the network
 
@@ -60,21 +57,7 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
         """
         self.tensors["C2x2tr"] = None
 
-    def enlarged_corner_ctm(self):
-        r"""
-        Contract the network
-
-        -----Tt---Ctr
-            / |    |
-           |  |    |
-        ---a--|----Tr
-           |\ |   /|
-        ---|--a*-/ |
-           |  |    |
-        """
-        self.tensors["C2x2tr"] = None
-
-    def fuse_enlarged_corner(self):
+    def fuse_enlarged_corner(self, **kwargs):
         r"""
         From block-sparse tensor to block-sparse matrix
 
@@ -87,7 +70,7 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
         """
         self.tensors["C2x2mat"] = None
 
-    def svd_enlarged_corner(self):
+    def svd_enlarged_corner(self, **kwargs):
         r"""
         Perform svd of block-sparse matrix
         """
@@ -96,4 +79,3 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
     def final_cleanup(self):
         r""" For operations done after executing benchmarks """
         pass
-

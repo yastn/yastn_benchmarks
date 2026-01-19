@@ -30,4 +30,9 @@ We thank TeNPy developer Johannes Hauschild for the discussions.
 
 ## CTMRG contractions
 
-We collect core elements of CTMRG update for tensor sizes motivated by the applications described in [YASTN release article](https://arxiv.org/abs/2405.12196). See `.\bench_contractions.py` for details of the test framework, with symmetric tensor structures gathered in the folder `.\input_shapes\`.
+We collect core elements of CTMRG update for tensor sizes motivated by the applications described in [YASTN release article](https://arxiv.org/abs/2405.12196). See `.\bench_ctm.py` for details of the test framework, with symmetric tensor structures gathered in the folder `.\input_shapes\`.
+
+Exemplary execution of full CTMRG update benchmark
+```
+python bench_ctm.py -model CtmBenchUpdate -kwargs 'dims=(4, 2)' -fname 'Heisenberg_U1_d=2_D=4_chi=30'
+```
