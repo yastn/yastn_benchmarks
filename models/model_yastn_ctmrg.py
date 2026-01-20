@@ -24,15 +24,10 @@ class CtmBenchUpdate(CtmBenchParent):
 
     def __init__(self, fname, config, dims=(2, 2), **kwargs):
         """ Initialize tensors for contraction. """
-        super().__init__(fname)
-        #
-        if not config["lru_cache"]:
-            yastn.set_cache_maxsize(maxsize=0)
+        super().__init__(fname, config)
         #
         self.bench_pipeline = ["ctmrg_update"]
-        self.config = yastn.make_config(sym=self.input["symmetry"], **config)
-        self.config.backend.random_seed(seed=0)  # makes outputs of different models comparable
-        self.use_nvtx = "torch" in self.config.backend.BACKEND_ID and self.config.backend.cuda_is_available()
+        self.params = {'dims': dims}
         #
         geometry = peps.SquareLattice(dims=dims)
         #
@@ -81,7 +76,7 @@ class CtmBenchUpdate(CtmBenchParent):
         assert self.env.is_consistent()
 
     def print_header(self, file=None):
-        print(f"Perform ctmrg update in {self.env.dims} lattice", file=file)
+        print(f"Perform ctmrg update in {self.params['dims']} SquareLattice", file=file)
 
     def print_properties(self, file=None):
         print("", file=file)
@@ -98,7 +93,7 @@ class CtmBenchUpdate(CtmBenchParent):
             print("", file=file)
             print("cutensor cache stats: "+str(list(yastn.backend.backend_torch_cpp.cutensor_cache_stats().values())), file=file)
 
-    def ctmrg_update(self, **kwargs):
+    def ctmrg_update(self):
         r""" update """
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"enlarged_corner")
         v = self.input['Tt_leg_l']

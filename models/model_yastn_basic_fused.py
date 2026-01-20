@@ -19,10 +19,10 @@ from .model_yastn_basic import CtmBenchYastnBasic
 import yastn
 
 
-class CtmBenchYastnDL(CtmBenchYastnBasic):
+class CtmBenchYastnBasicFused(CtmBenchYastnBasic):
 
     def print_header(self, file=None):
-        print("Form double-layer A tensor on the fly; No fusion in building tensors.", file=file)
+        print("Attach a and a* sequentially; Extra fusions when building enlarged corners.", file=file)
 
     def enlarged_corner(self):
         r"""
@@ -39,10 +39,16 @@ class CtmBenchYastnDL(CtmBenchYastnBasic):
              |   |            (3+)
              e   f              d
         """
-        assert self.allow_explicit_double_layer
-
         a, Tt, Tr, Ctr = [self.tensors[k] for k in ["a", "Tt", "Tr", "Ctr"]]
+        if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"enlarged_corner_fused")
 
-        self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd,GCbeD,GEcfF->abcdef',
-                                                Tt, Ctr, Tr, a, a.conj(),
-                                                order='ABGCDEF')
+        self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd->aCEDFd', Tt, Ctr, Tr,
+                                                order='AB')
+        self.tensors["C2x2tr"] = yastn.fuse_legs(self.tensors["C2x2tr"], axes=(1,2, (0,5), 3, 4))
+        self.tensors["C2x2tr"] = yastn.einsum('CExDF,GCbeD,GEcfF->xbcef',
+                                                self.tensors["C2x2tr"], a, a.conj(),
+                                                order='CDGEF')
+        self.tensors["C2x2tr"] = yastn.unfuse_legs(self.tensors["C2x2tr"], axes=0)
+        self.tensors["C2x2tr"] = self.tensors["C2x2tr"].transpose(axes=(0,2,3,1,4,5))
+
+        if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()

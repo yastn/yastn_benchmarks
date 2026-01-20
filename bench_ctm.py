@@ -27,22 +27,30 @@ def readable_size(size):
     size_list = [f'{int(size):,} B'] + [f'{int(size) / 1024 ** (i + 1):,.2f} {u}' for i, u in enumerate(units)]
     return [size for size in size_list if not size.startswith('0.')][-1]
 
-def fname_output(model, fname, args):
+def fname_output(bench, fname, args):
     fpath = os.path.dirname(__file__)
-    device= args.device.replace(":", "-")
-    path = Path(f"{fpath}/results_ctm/{model}/num_threads={args.num_threads}/policy={args.tensordot_policy}"\
-                +f"/lru_cache={args.lru_cache}/{args.backend}/{device}")
+    device = args.device.replace(":", "-")
+    ss = f"{fpath}/results_ctm/{type(bench).__name__}/"
+    if bench.params:
+        ss += '_'.join(f"{k}={v}" for k, v in sorted(bench.params.items())) + '/'
+    ss += f"num_threads={args.num_threads}/policy={args.tensordot_policy}/lru_cache={args.lru_cache}/{args.backend}/{device}"
+    path = Path(ss)
     path.mkdir(parents=True, exist_ok=True)
     return path / f"{fname.stem}.out"
 
-def run_bench(model, fname_out, config, repeat, pipeline, memory_profile, str_kwargs):
+def run_bench(model, args):
     """
     Run a single benchmark and output results to file or to stdout
     """
-    expr = ast.parse(f"dict({str_kwargs}\n)", mode="eval")
+    config = {"backend": args.backend, "default_device": args.device, "default_dtype": args.dtype,
+              "lru_cache": args.lru_cache, "tensordot_policy": args.tensordot_policy}
+    #
+    expr = ast.parse(f"dict({args.params}\n)", mode="eval")
     kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in expr.body.keywords}
-
+    #
     bench = model(fname, config, **kwargs)
+    #
+    fname_out = fname_output(bench, fname, args)
 
     with contextlib.ExitStack() as stack:
         f = stack.enter_context(open(fname_out, 'w')) if fname_out else sys.stdout
@@ -50,26 +58,26 @@ def run_bench(model, fname_out, config, repeat, pipeline, memory_profile, str_kw
         bench.print_header(file=f)
 
         tasks = bench.bench_pipeline
-        if len(pipeline)>0 and not ("all" in pipeline):
-            assert all([ (t in bench.bench_pipeline) for t in pipeline ]), \
+        if len(args.pipeline) > 0 and not ("all" in args.pipeline):
+            assert all([(t in bench.bench_pipeline) for t in args.pipeline]), \
                 f"Some provided pipeline tasks are not in the model's benchmark pipeline. {tasks}"
-            tasks = [ t for t in bench.bench_pipeline if (t in pipeline) ]
+            tasks = [t for t in bench.bench_pipeline if (t in args.pipeline)]
         print(f"Selected pipeline tasks to run: {tasks}")
         for task in tasks:
             try:
-                times = timeit.repeat(stmt=f'bench.{task}({str_kwargs})', repeat=repeat, number=1, globals=locals())
+                times = timeit.repeat(stmt=f'bench.{task}()', repeat=args.repeat, number=1, globals=locals())
             except AssertionError:
                 print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
                 return None
             print(task + "; times [seconds]", file=f)
             print(*(f"{t:.4f}" for t in times), file=f)
-            if memory_profile:
+            if args.memory_profile:
                 tracemalloc.start()
                 current, peak =  tracemalloc.get_traced_memory()
                 print(f"memory: {readable_size(current)}, {readable_size(peak)}", file=f)
                 tracemalloc.stop()
             else:
-                timeit.repeat(stmt=f'bench.{task}({str_kwargs})', repeat=1, number=1, globals=locals())
+                timeit.repeat(stmt=f'bench.{task}()', repeat=1, number=1, globals=locals())
 
         bench.print_properties(file=f)
         bench.final_cleanup()
@@ -86,9 +94,8 @@ if __name__ == "__main__":
     parser.add_argument("-memory_profile", dest='memory_profile', action='store_true', help="Profile memory usage with tracemalloc. High overhead.")
     parser.add_argument("-repeat", type=int, default=4)
     parser.add_argument("-fname", type=str, default='Heisenberg_U1_d=2_D=4_chi=30', help="Use glob to match basenames of json files in ./input_shapes")
-    parser.add_argument("-model", type=str, default='CtmBenchUpdate', help="Use 'args.model in model_class_name' to select models")
-    parser.add_argument("-kwargs", type=str, default='', help="kwargs passed to pipeline functions")
-
+    parser.add_argument("-model", type=str, default='Ctm', help="Use 'args.model in model_class_name' to select models")
+    parser.add_argument("-params", type=str, default='', help="Model-specific parameters, e.g. 'dims=(2,2)' for BenchCtmUpdate")
     parser.add_argument(
         "-pipeline",
         nargs="*",
@@ -107,9 +114,10 @@ if __name__ == "__main__":
         os.environ["NUMEXPR_NUM_THREADS"] = args.num_threads
 
     # import models here to set num_threads before importing backends
-    from models import CtmBenchYastnBasic, CtmBenchYastnDL, CtmBenchYastnfpeps, CtmBenchYastnDLPrecompute, CtmBenchUpdate
+    from models import CtmBenchYastnBasic, CtmBenchYastnDL, CtmBenchYastnfpeps, CtmBenchYastnDLPrecompute, CtmBenchUpdate, CtmBenchYastnBasicFused
     models = {"CtmBenchYastnDL": CtmBenchYastnDL,
               "CtmBenchYastnBasic": CtmBenchYastnBasic,
+              "CtmBenchYastnBasicFused": CtmBenchYastnBasicFused,
               "CtmBenchYastnfpeps": CtmBenchYastnfpeps,
               "CtmBenchYastnDLPrecompute": CtmBenchYastnDLPrecompute,
               "CtmBenchUpdate": CtmBenchUpdate}
@@ -119,9 +127,6 @@ if __name__ == "__main__":
     fnames = glob.glob(os.path.join(os.path.dirname(__file__), "input_shapes/", args.fname + '.json'))
     fnames = [Path(fname) for fname in sorted(fnames)]
 
-    config = {"backend": args.backend, "default_device": args.device, "default_dtype": args.dtype,
-              "lru_cache": args.lru_cache, "tensordot_policy": args.tensordot_policy}
-
     if len(fnames) == 0:
         print(f"No input files found for pattern {args.fname} in {os.path.join(os.path.dirname(__file__), 'input_shapes/')}")
         sys.exit(1)
@@ -129,7 +134,4 @@ if __name__ == "__main__":
     # execute benchmarks
     for fname in fnames:
         for model in use_models:
-            fname_out = fname_output(model, fname, args) if args.to_file else None
-            if fname_out:
-                print(f"Running benchmark for model {model}, input file {fname}, output file {fname_out}")
-            run_bench(models[model], fname_out, config, args.repeat, args.pipeline, args.memory_profile, args.kwargs)
+            run_bench(models[model], args)

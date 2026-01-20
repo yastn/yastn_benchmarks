@@ -21,16 +21,13 @@ import yastn
 
 class CtmBenchYastnBasic(CtmBenchParent):
 
-    def __init__(self, fname, config, **kwargs):
+    def __init__(self, fname, config, fuse=False, **kwargs):
         """ Initialize tensors for contraction. """
-        super().__init__(fname)
+        super().__init__(fname, config)
 
-        if not config["lru_cache"]:
-            yastn.set_cache_maxsize(maxsize=0)
-
-        self.config = yastn.make_config(sym=self.input["symmetry"], **config)
-        self.config.backend.random_seed(seed=0)  # makes outputs of different models comparable
-        self.use_nvtx= ("torch" in self.config.backend.BACKEND_ID) and self.config.backend.cuda_is_available()
+        self.bench_pipeline = ["enlarged_corner",
+                               "fuse_enlarged_corner",
+                               "svd_enlarged_corner"]
 
         legs = {k: yastn.Leg(self.config, s=v['signature'], t=v['charges'], D=v['dimensions'])
                 for k, v in self.input.items() if "leg" in k}
@@ -75,7 +72,7 @@ class CtmBenchYastnBasic(CtmBenchParent):
             print(f"{k} tensor properties:", file=file)
             v.print_properties(file=file)
 
-    def enlarged_corner(self, fuse=False, **kwargs):
+    def enlarged_corner(self):
         r"""
         Contract the network
 
@@ -92,30 +89,17 @@ class CtmBenchYastnBasic(CtmBenchParent):
         """
         a, Tt, Tr, Ctr = [self.tensors[k] for k in ["a", "Tt", "Tr", "Ctr"]]
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"enlarged_corner")
-        if fuse:
-            self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd->aCEDFd', Tt, Ctr, Tr,
-                                                    order='AB')
-            self.tensors["C2x2tr"] = yastn.fuse_legs(self.tensors["C2x2tr"], axes=(1,2, (0,5), 3, 4))
-            self.tensors["C2x2tr"] = yastn.einsum('CExDF,GCbeD,GEcfF->xbcef',
-                                                    self.tensors["C2x2tr"], a, a.conj(),
-                                                    order='CDGEF')
-            self.tensors["C2x2tr"] = yastn.unfuse_legs(self.tensors["C2x2tr"], axes=0)
-            self.tensors["C2x2tr"] = self.tensors["C2x2tr"].transpose(axes=(0,2,3,1,4,5))
-        else:
-            self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd,GCbeD,GEcfF->abcdef',
-                                                Tt, Ctr, Tr, a, a.conj(),
-                                                order='ABCDEFG')
+        self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd,GCbeD,GEcfF->abcdef',
+                                            Tt, Ctr, Tr, a, a.conj(),
+                                            order='ABCDEFG')
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
 
-    def fuse_enlarged_corner(self, **kwargs):
+    def fuse_enlarged_corner(self):
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"fuse_legs")
         self.tensors["C2x2mat"] = self.tensors["C2x2tr"].fuse_legs(axes=((0, 1, 2), (3, 4, 5)))
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
 
-    def svd_enlarged_corner(self, **kwargs):
+    def svd_enlarged_corner(self):
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"svd_enlarged_corner")
         self.tensors["U"], self.tensors["S"], self.tensors["V"] = self.tensors["C2x2mat"].svd()
         if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
-
-    def final_cleanup(self):
-        yastn.clear_cache()  # yastn is using lru_cache to store contraction logic
