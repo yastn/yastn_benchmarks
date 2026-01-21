@@ -15,7 +15,7 @@
 # ==============================================================================
 """ Contractions for benchmarks: yastn with ctm tensors with no legs fused. """
 from __future__ import annotations
-from .model_parent import CtmBenchParent
+from .model_parent import CtmBenchParent, nvtx
 import yastn
 import yastn.tn.fpeps as peps
 
@@ -93,14 +93,13 @@ class CtmBenchUpdate(CtmBenchParent):
             print("", file=file)
             print("cutensor cache stats: "+str(list(yastn.backend.backend_torch_cpp.cutensor_cache_stats().values())), file=file)
 
+    @nvtx
     def ctmrg_update(self):
         r""" update """
-        if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"enlarged_corner")
         v = self.input['Tt_leg_l']
         leg = yastn.Leg(self.config, s=v['signature'], t=v['charges'], D=v['dimensions'])
         opts_svd = {'D_block': leg.tD, 'tol': 1e-12}
         self.env.update_(opts_svd=opts_svd)
-        if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
 
     def final_cleanup(self):
         yastn.clear_cache()  # yastn is using lru_cache to store contraction logic

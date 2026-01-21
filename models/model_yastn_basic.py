@@ -15,7 +15,7 @@
 # ==============================================================================
 """ Contractions for benchmarks: yastn with ctm tensors with no legs fused. """
 from __future__ import annotations
-from .model_parent import CtmBenchParent
+from .model_parent import CtmBenchParent, nvtx
 import yastn
 
 
@@ -72,6 +72,7 @@ class CtmBenchYastnBasic(CtmBenchParent):
             print(f"{k} tensor properties:", file=file)
             v.print_properties(file=file)
 
+    @nvtx
     def enlarged_corner(self):
         r"""
         Contract the network
@@ -88,18 +89,14 @@ class CtmBenchYastnBasic(CtmBenchParent):
              e   f              d
         """
         a, Tt, Tr, Ctr = [self.tensors[k] for k in ["a", "Tt", "Tr", "Ctr"]]
-        if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"enlarged_corner")
         self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd,GCbeD,GEcfF->abcdef',
                                             Tt, Ctr, Tr, a, a.conj(),
                                             order='ABCDEFG')
-        if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
 
+    @nvtx
     def fuse_enlarged_corner(self):
-        if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"fuse_legs")
         self.tensors["C2x2mat"] = self.tensors["C2x2tr"].fuse_legs(axes=((0, 1, 2), (3, 4, 5)))
-        if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()
 
+    @nvtx
     def svd_enlarged_corner(self):
-        if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"svd_enlarged_corner")
         self.tensors["U"], self.tensors["S"], self.tensors["V"] = self.tensors["C2x2mat"].svd()
-        if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()

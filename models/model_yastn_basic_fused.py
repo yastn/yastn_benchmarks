@@ -16,6 +16,7 @@
 """ Contractions for benchmarks: yastn with ctm tensors with no legs fused. """
 from __future__ import annotations
 from .model_yastn_basic import CtmBenchYastnBasic
+from .model_parent import nvtx
 import yastn
 
 
@@ -24,6 +25,7 @@ class CtmBenchYastnBasicFused(CtmBenchYastnBasic):
     def print_header(self, file=None):
         print("Attach a and a* sequentially; Extra fusions when building enlarged corners.", file=file)
 
+    @nvtx
     def enlarged_corner(self):
         r"""
         Contract the network
@@ -40,8 +42,6 @@ class CtmBenchYastnBasicFused(CtmBenchYastnBasic):
              e   f              d
         """
         a, Tt, Tr, Ctr = [self.tensors[k] for k in ["a", "Tt", "Tr", "Ctr"]]
-        if self.use_nvtx: self.config.backend.cuda.nvtx.range_push(f"enlarged_corner_fused")
-
         self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd->aCEDFd', Tt, Ctr, Tr,
                                                 order='AB')
         self.tensors["C2x2tr"] = yastn.fuse_legs(self.tensors["C2x2tr"], axes=(1,2, (0,5), 3, 4))
@@ -50,5 +50,3 @@ class CtmBenchYastnBasicFused(CtmBenchYastnBasic):
                                                 order='CDGEF')
         self.tensors["C2x2tr"] = yastn.unfuse_legs(self.tensors["C2x2tr"], axes=0)
         self.tensors["C2x2tr"] = self.tensors["C2x2tr"].transpose(axes=(0,2,3,1,4,5))
-
-        if self.use_nvtx: self.config.backend.cuda.nvtx.range_pop()

@@ -16,6 +16,7 @@
 """ Contractions for benchmarks: yastn with ctm tensors with no legs fused. """
 from __future__ import annotations
 from .model_yastn_basic import CtmBenchYastnBasic
+from .model_parent import nvtx
 import yastn
 
 
@@ -24,6 +25,7 @@ class CtmBenchYastnDL(CtmBenchYastnBasic):
     def print_header(self, file=None):
         print("Form double-layer A tensor on the fly; No fusion in building tensors.", file=file)
 
+    @nvtx
     def enlarged_corner(self):
         r"""
         Contract the network

@@ -20,6 +20,17 @@ import yastn
 
 double_layer_D_limit = {"dense": 16, "Z2": 18, "U1": 20, "U1xU1": 25, "U1xU1xZ2": 25}
 
+
+def nvtx(func):
+    def wrapper(self, *args, **kwargs):
+        if self.use_nvtx:
+            self.config.backend.cuda.nvtx.range_push(f"{type(self).__name__} {func.__name__}")
+        res = func(self, *args, **kwargs)
+        if self.use_nvtx:
+            self.config.backend.cuda.nvtx.range_pop()
+        return res
+    return wrapper
+
 class CtmBenchParent(metaclass=abc.ABCMeta):
 
     def __init__(self, fname, config, **kwargs):
@@ -37,6 +48,7 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
             yastn.set_cache_maxsize(maxsize=0)
         self.config = yastn.make_config(sym=self.input["symmetry"], **config)
         self.config.backend.random_seed(seed=0)  # makes outputs of different models comparable
+
         self.use_nvtx = ("torch" in self.config.backend.BACKEND_ID) and self.config.backend.cuda_is_available()
 
         Ds = [sum(self.input[dirn]["dimensions"]) for dirn in ["a_leg_t", "a_leg_l", "a_leg_b", "a_leg_r"]]
