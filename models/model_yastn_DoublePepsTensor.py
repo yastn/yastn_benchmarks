@@ -20,12 +20,11 @@ import yastn
 from yastn.tn.fpeps import DoublePepsTensor
 
 
-class CtmBenchYastnfpeps(CtmBenchYastnBasic):
+class CtmBenchYastnDoublePepsTensor(CtmBenchYastnBasic):
 
     def __init__(self, *args, **kwargs):
         """ Initialize tensors for contraction. """
         super().__init__(*args, **kwargs)
-        self.tensors["a"] = self.tensors["a"].transpose(axes=(1, 2, 3, 4, 0))
         self.tensors["Tt"] = self.tensors["Tt"].fuse_legs(axes=(0, (1, 2), 3))
         self.tensors["Tr"] = self.tensors["Tr"].fuse_legs(axes=(0, (1, 2), 3))
         self.tensors["A"] = DoublePepsTensor(self.tensors["a"], self.tensors["a"])
@@ -48,5 +47,6 @@ class CtmBenchYastnfpeps(CtmBenchYastnBasic):
         A, Tt, Tr, Ctr = [self.tensors[k] for k in ["A", "Tt", "Tr", "Ctr"]]
         self.tensors["C2x2tr"] = yastn.tensordot(Tt @ (Ctr @ Tr), A, axes=((1, 2), (0, 3)))
 
+    @nvtx
     def fuse_enlarged_corner(self):
         self.tensors["C2x2mat"] = self.tensors["C2x2tr"].fuse_legs(axes=((0, 2), (1, 3)))

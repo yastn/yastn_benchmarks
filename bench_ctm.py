@@ -33,7 +33,7 @@ def fname_output(bench, fname, args):
     ss = f"{fpath}/results_ctm/{type(bench).__name__}/"
     if bench.params:
         ss += '_'.join(f"{k}={v}" for k, v in sorted(bench.params.items())) + '/'
-    ss += f"num_threads={args.num_threads}/policy={args.tensordot_policy}/lru_cache={args.lru_cache}/{args.backend}/{device}"
+    ss += f"{args.dtype}/num_threads={args.num_threads}/policy={args.tensordot_policy}/lru_cache={args.lru_cache}/{args.backend}/{device}"
     path = Path(ss)
     path.mkdir(parents=True, exist_ok=True)
     return path / f"{fname.stem}.out"
@@ -62,6 +62,7 @@ def run_bench(model, args):
             assert all([(t in bench.bench_pipeline) for t in args.pipeline]), \
                 f"Some provided pipeline tasks are not in the model's benchmark pipeline. {tasks}"
             tasks = [t for t in bench.bench_pipeline if (t in args.pipeline)]
+        print(f"Model = {type(bench).__name__}; fname = {fname.name}")
         print(f"Selected pipeline tasks to run: {tasks}")
         for task in tasks:
             try:
@@ -92,7 +93,7 @@ if __name__ == "__main__":
     parser.add_argument("-no_lru_cache", dest='lru_cache', action='store_false', help="Yastn is using lru_cache to back up algebra of symmetries. Use this option to switch it off.")
     parser.add_argument("-stdout", dest='to_file', action='store_false', help="By default, write results to files in /results; Use this option to print to stdout.")
     parser.add_argument("-memory_profile", dest='memory_profile', action='store_true', help="Profile memory usage with tracemalloc. High overhead.")
-    parser.add_argument("-repeat", type=int, default=4)
+    parser.add_argument("-repeat", type=int, default=4, help='Number of repeated runs; passed to timeit')
     parser.add_argument("-fname", type=str, default='Heisenberg_U1_d=2_D=4_chi=30', help="Use glob to match basenames of json files in ./input_shapes")
     parser.add_argument("-model", type=str, default='Ctm', help="Use 'args.model in model_class_name' to select models")
     parser.add_argument("-params", type=str, default='', help="Model-specific parameters, e.g. 'dims=(2,2)' for BenchCtmUpdate")
@@ -114,12 +115,11 @@ if __name__ == "__main__":
         os.environ["NUMEXPR_NUM_THREADS"] = args.num_threads
 
     # import models here to set num_threads before importing backends
-    from models import CtmBenchYastnBasic, CtmBenchYastnDL, CtmBenchYastnfpeps, CtmBenchYastnDLPrecompute, CtmBenchUpdate, CtmBenchYastnBasicFused
-    models = {"CtmBenchYastnDL": CtmBenchYastnDL,
-              "CtmBenchYastnBasic": CtmBenchYastnBasic,
+    from models import CtmBenchYastnBasic, CtmBenchYastnDoublePepsTensor, CtmBenchYastnDoublePepsTensorFuseLayers, CtmBenchUpdate, CtmBenchYastnBasicFused
+    models = {"CtmBenchYastnBasic": CtmBenchYastnBasic,
               "CtmBenchYastnBasicFused": CtmBenchYastnBasicFused,
-              "CtmBenchYastnfpeps": CtmBenchYastnfpeps,
-              "CtmBenchYastnDLPrecompute": CtmBenchYastnDLPrecompute,
+              "CtmBenchYastnDoublePepsTensor": CtmBenchYastnDoublePepsTensor,
+              "CtmBenchYastnDoublePepsTensorFuseLayers": CtmBenchYastnDoublePepsTensorFuseLayers,
               "CtmBenchUpdate": CtmBenchUpdate}
 
     # identify models and input files to run

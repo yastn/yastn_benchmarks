@@ -36,3 +36,8 @@ Exemplary execution of full CTMRG update benchmark
 ```
 python bench_ctm.py -model CtmBenchUpdate -params 'dims=(4, 2)' -fname 'Heisenberg_U1_d=2_D=4_chi=30'
 ```
+
+For more options, see
+```
+python bench_ctm.py --help
+```

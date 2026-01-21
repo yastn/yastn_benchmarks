@@ -42,11 +42,10 @@ class CtmBenchYastnBasicFused(CtmBenchYastnBasic):
              e   f              d
         """
         a, Tt, Tr, Ctr = [self.tensors[k] for k in ["a", "Tt", "Tr", "Ctr"]]
-        self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd->aCEDFd', Tt, Ctr, Tr,
-                                                order='AB')
-        self.tensors["C2x2tr"] = yastn.fuse_legs(self.tensors["C2x2tr"], axes=(1,2, (0,5), 3, 4))
-        self.tensors["C2x2tr"] = yastn.einsum('CExDF,GCbeD,GEcfF->xbcef',
-                                                self.tensors["C2x2tr"], a, a.conj(),
-                                                order='CDGEF')
-        self.tensors["C2x2tr"] = yastn.unfuse_legs(self.tensors["C2x2tr"], axes=0)
-        self.tensors["C2x2tr"] = self.tensors["C2x2tr"].transpose(axes=(0,2,3,1,4,5))
+        tmp = yastn.einsum('aCEA,AB,BDFd->aCEDFd', Tt, Ctr, Tr, order='AB')
+        tmp = yastn.fuse_legs(tmp, axes=(1, 2, (0, 5), 3, 4))
+        tmp = yastn.einsum('CExDF,CbeDG,EcfFG->xbcef',
+                           tmp, a, a.conj(),
+                           order='CDEFG')
+        tmp = yastn.unfuse_legs(tmp, axes=0)
+        self.tensors["C2x2tr"] = tmp.transpose(axes=(0, 2, 3, 1, 4, 5))
