@@ -16,24 +16,40 @@
 """ Parent class specifying contractions for benchmarks. """
 import abc
 import json
+import yastn
 
 double_layer_D_limit = {"dense": 16, "Z2": 18, "U1": 20, "U1xU1": 25, "U1xU1xZ2": 25}
 
+
+def nvtx(func):
+    def wrapper(self, *args, **kwargs):
+        if self.use_nvtx:
+            self.config.backend.cuda.nvtx.range_push(f"{type(self).__name__} {func.__name__}")
+        res = func(self, *args, **kwargs)
+        if self.use_nvtx:
+            self.config.backend.cuda.nvtx.range_pop()
+        return res
+    return wrapper
+
 class CtmBenchParent(metaclass=abc.ABCMeta):
 
-    def __init__(self, fname, *args):
+    def __init__(self, fname, config, **kwargs):
         """
         Read tensors legs and other information into dictionary self.input
         """
 
-        self.bench_pipeline = ["enlarged_corner",
-                               "fuse_enlarged_corner",
-                               "svd_enlarged_corner"]
+        self.bench_pipeline = []
+        self.params = {}
 
         with open(fname, "r", encoding='utf-8') as f:
             self.input = json.load(f)
 
-        self.tensors = {}
+        if not config["lru_cache"]:
+            yastn.set_cache_maxsize(maxsize=0)
+        self.config = yastn.make_config(sym=self.input["symmetry"], **config)
+        self.config.backend.random_seed(seed=0)  # makes outputs of different models comparable
+
+        self.use_nvtx = ("torch" in self.config.backend.BACKEND_ID) and self.config.backend.cuda_is_available()
 
         Ds = [sum(self.input[dirn]["dimensions"]) for dirn in ["a_leg_t", "a_leg_l", "a_leg_b", "a_leg_r"]]
         D4 = Ds[0] * Ds[1] * Ds[2] * Ds[3]
@@ -45,39 +61,6 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
     def print_properties(self, file=None):
         print(" Fill-in contractions. ", file=file)
 
-    def enlarged_corner(self):
-        r"""
-        Contract the network
-
-        -----Tt---Ctr
-            / |    |
-           |  |    |
-        ---a--|----Tr
-           |\ |   /|
-        ---|--a*-/ |
-           |  |    |
-        """
-        self.tensors["C2x2tr"] = None
-
-    def fuse_enlarged_corner(self):
-        r"""
-        From block-sparse tensor to block-sparse matrix
-
-        (0----C2x2  -> 0--C2x2
-         1----|   |       |
-         2)---|___|       1
-              | | |
-             (4 5 3)
-
-        """
-        self.tensors["C2x2mat"] = None
-
-    def svd_enlarged_corner(self):
-        r"""
-        Perform svd of block-sparse matrix
-        """
-        self.tensors["U"], self.tensors["S"], self.tensors["V"] = None, None, None
-
     def final_cleanup(self):
         r""" For operations done after executing benchmarks """
-        pass
+        yastn.clear_cache()  # yastn is using lru_cache to store contraction logic

@@ -14,37 +14,41 @@
 # limitations under the License.
 # ==============================================================================
 """ Contractions for benchmarks: yastn with ctm tensors with no legs fused. """
-from __future__ import annotations
-from .model_yastn_basic import CtmBenchYastnBasic
+from .model_yastn_DoublePepsTensor import CtmBenchYastnDoublePepsTensor
+from .model_parent import nvtx
 import yastn
 
 
-class CtmBenchYastnDLPrecompute(CtmBenchYastnBasic):
+class CtmBenchYastnDoublePepsTensorFuseLayers(CtmBenchYastnDoublePepsTensor):
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        """ Initialize tensors for contraction. """
+        super().__init__(*args, **kwargs)
+
         self.bench_pipeline = ["precompute_A_mat",
                                "enlarged_corner",
                                "fuse_enlarged_corner",
                                "svd_enlarged_corner"]
 
     def print_header(self, file=None):
-        print("Form double-layer A tensor on the fly; No fusion in building tensors.", file=file)
+        print("Attach a and a* sequentially; Fusion of some legs in the input and intermediate tensors; Used in yastn.tn.fpeps.", file=file)
 
+    @nvtx
     def precompute_A_mat(self):
         assert self.allow_explicit_double_layer
-        a = self.tensors["a"]
-        tmp = yastn.einsum('Gabcd,Gefgh->abcdefgh', a, a.conj(), order='G')
-        tmp = yastn.fuse_legs(tmp, axes=((0, 4, 3, 7), (1, 5, 2, 6)))
-        self.tensors["Amat"] = tmp
+        self.tensors["Af"] = self.tensors["A"].fuse_layers()
 
+    @nvtx
     def enlarged_corner(self):
-        Amat, Tt, Tr, Ctr = [self.tensors[k] for k in ["Amat", "Tt", "Tr", "Ctr"]]
-        tmp = yastn.einsum('abcA,AB,Bdef->abcdef', Tt, Ctr, Tr, order="AB")
-        tmp = tmp.fuse_legs(axes=((0, 5), (1, 2, 3, 4)))
-        tmp = tmp @ Amat
-        tmp = tmp.unfuse_legs(axes=(0, 1))
-        self.tensors["C2x2tr"] = tmp
+        r"""
+        Contract the network
 
-    def fuse_enlarged_corner(self):
-        self.tensors["C2x2mat"] = self.tensors["C2x2tr"].fuse_legs(axes=((0, 2, 3), (1, 4, 5)))
+        (0)-----Tt---Ctr
+                /|    |
+        (1)=----a|---=Tr
+            \---|a*-/ |
+                \|    |
+                (3)  (2)
+        """
+        A, Tt, Tr, Ctr = [self.tensors[k] for k in ["Af", "Tt", "Tr", "Ctr"]]
+        self.tensors["C2x2tr"] = yastn.tensordot(Tt @ (Ctr @ Tr), A, axes=((1, 2), (0, 3)))

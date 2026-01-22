@@ -16,14 +16,16 @@
 """ Contractions for benchmarks: yastn with ctm tensors with no legs fused. """
 from __future__ import annotations
 from .model_yastn_basic import CtmBenchYastnBasic
+from .model_parent import nvtx
 import yastn
 
 
-class CtmBenchYastnDL(CtmBenchYastnBasic):
+class CtmBenchYastnBasicFused(CtmBenchYastnBasic):
 
     def print_header(self, file=None):
-        print("Form double-layer A tensor on the fly; No fusion in building tensors.", file=file)
+        print("Attach a and a* sequentially; Extra fusions when building enlarged corners.", file=file)
 
+    @nvtx
     def enlarged_corner(self):
         r"""
         Contract the network
@@ -39,10 +41,11 @@ class CtmBenchYastnDL(CtmBenchYastnBasic):
              |   |            (3+)
              e   f              d
         """
-        assert self.allow_explicit_double_layer
-
         a, Tt, Tr, Ctr = [self.tensors[k] for k in ["a", "Tt", "Tr", "Ctr"]]
-
-        self.tensors["C2x2tr"] = yastn.einsum('aCEA,AB,BDFd,GCbeD,GEcfF->abcdef',
-                                                Tt, Ctr, Tr, a, a.conj(),
-                                                order='ABGCDEF')
+        tmp = yastn.einsum('aCEA,AB,BDFd->aCEDFd', Tt, Ctr, Tr, order='AB')
+        tmp = yastn.fuse_legs(tmp, axes=(1, 2, (0, 5), 3, 4))
+        tmp = yastn.einsum('CExDF,CbeDG,EcfFG->xbcef',
+                           tmp, a, a.conj(),
+                           order='CDEFG')
+        tmp = yastn.unfuse_legs(tmp, axes=0)
+        self.tensors["C2x2tr"] = tmp.transpose(axes=(0, 2, 3, 1, 4, 5))

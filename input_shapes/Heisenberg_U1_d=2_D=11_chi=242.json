@@ -1,0 +1,12 @@
+{
+    "symmetry": "U1",
+    "a_leg_s": {"signature": -1, "charges": [[0], [2]], "dimensions": [1, 1]},
+    "a_leg_t": {"signature": -1, "charges": [[-2], [0], [2]], "dimensions": [3, 4, 4]},
+    "a_leg_l": {"signature": -1, "charges": [[-2], [0], [2]], "dimensions": [3, 4, 4]},
+    "a_leg_b": {"signature": 1, "charges": [[-2], [0], [2]], "dimensions": [3, 4, 4]},
+    "a_leg_r": {"signature": 1, "charges": [[-2], [0], [2]], "dimensions": [3, 4, 4]},
+    "Tt_leg_l": {"signature": -1, "charges": [[-4], [-2], [0], [2], [4]], "dimensions": [15, 57, 98, 57, 15]},
+    "Tt_leg_r": {"signature": 1, "charges": [[-4], [-2], [0], [2], [4]], "dimensions": [15, 57, 98, 57, 15]},
+    "Tr_leg_t": {"signature": -1, "charges": [[-4], [-2], [0], [2], [4]], "dimensions": [15, 57, 98, 57, 15]},
+    "Tr_leg_b": {"signature": 1, "charges": [[-4], [-2], [0], [2], [4]], "dimensions": [15, 57, 98, 57, 15]}
+}
