@@ -35,6 +35,7 @@ class CtmBenchUpdate(CtmBenchParent):
             if k in kwargs:
                 self.params[k] = kwargs[k]
         #
+        assert self.params['dims'][0] % 2 == 0 and self.params['dims'][1] % 2 == 0, 'unit-cell size should be even in both directions consistency of leg dimensions'
         geometry = peps.SquareLattice(dims=self.params['dims'])
         #
         legs = {k: yastn.Leg(self.config, s=v['signature'], t=v['charges'], D=v['dimensions'])
