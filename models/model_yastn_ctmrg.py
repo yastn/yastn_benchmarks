@@ -22,14 +22,21 @@ import yastn.tn.fpeps as peps
 
 class CtmBenchUpdate(CtmBenchParent):
 
-    def __init__(self, fname, config, dims=(2, 2), **kwargs):
+    def __init__(self, fname, config, **kwargs):
         """ Initialize tensors for contraction. """
         super().__init__(fname, config)
         #
         self.bench_pipeline = ["ctmrg_update"]
-        self.params = {'dims': dims}
+        self.params = {'dims': (2, 2),
+                       'method': '2x2',
+                       'policy': 'fullrank'}  # default params
         #
-        geometry = peps.SquareLattice(dims=dims)
+        for k in self.params:
+            if k in kwargs:
+                self.params[k] = kwargs[k]
+        #
+        assert self.params['dims'][0] % 2 == 0 and self.params['dims'][1] % 2 == 0, 'unit-cell size should be even in both directions consistency of leg dimensions'
+        geometry = peps.SquareLattice(dims=self.params['dims'])
         #
         legs = {k: yastn.Leg(self.config, s=v['signature'], t=v['charges'], D=v['dimensions'])
                 for k, v in self.input.items() if "leg" in k}
@@ -98,8 +105,8 @@ class CtmBenchUpdate(CtmBenchParent):
         r""" update """
         v = self.input['Tt_leg_l']
         leg = yastn.Leg(self.config, s=v['signature'], t=v['charges'], D=v['dimensions'])
-        opts_svd = {'D_block': leg.tD, 'tol': 1e-12}
-        self.env.update_(opts_svd=opts_svd)
+        opts_svd = {'D_block': leg.tD, 'tol': 1e-12, 'policy': self.params['policy']}
+        self.env.update_(opts_svd=opts_svd, method=self.params['method'])
 
     def final_cleanup(self):
         yastn.clear_cache()  # yastn is using lru_cache to store contraction logic
