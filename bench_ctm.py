@@ -115,12 +115,13 @@ if __name__ == "__main__":
         os.environ["NUMEXPR_NUM_THREADS"] = args.num_threads
 
     # import models here to set num_threads before importing backends
-    from models import CtmBenchYastnBasic, CtmBenchYastnDoublePepsTensor, CtmBenchYastnDoublePepsTensorFuseLayers, CtmBenchUpdate, CtmBenchYastnBasicFused
+    from models import CtmBenchYastnBasic, CtmBenchYastnDoublePepsTensor, CtmBenchYastnDoublePepsTensorFuseLayers, CtmBenchUpdate, CtmBenchYastnBasicFused, CtmBenchUpdateParallel
     models = {"CtmBenchYastnBasic": CtmBenchYastnBasic,
               "CtmBenchYastnBasicFused": CtmBenchYastnBasicFused,
               "CtmBenchYastnDoublePepsTensor": CtmBenchYastnDoublePepsTensor,
               "CtmBenchYastnDoublePepsTensorFuseLayers": CtmBenchYastnDoublePepsTensorFuseLayers,
-              "CtmBenchUpdate": CtmBenchUpdate}
+              "CtmBenchUpdate": CtmBenchUpdate,
+              "CtmBenchUpdateParallel": CtmBenchUpdateParallel,}
 
     # identify models and input files to run
     use_models = [model for model in models if args.model in model]
