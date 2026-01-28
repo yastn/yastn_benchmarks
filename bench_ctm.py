@@ -28,6 +28,8 @@ def readable_size(size):
     return [size for size in size_list if not size.startswith('0.')][-1]
 
 def fname_output(bench, fname, args):
+    if args.to_file is False:
+        return None
     fpath = os.path.dirname(__file__)
     device = args.device.replace(":", "-")
     ss = f"{fpath}/results_ctm/{type(bench).__name__}/"
@@ -115,12 +117,14 @@ if __name__ == "__main__":
         os.environ["NUMEXPR_NUM_THREADS"] = args.num_threads
 
     # import models here to set num_threads before importing backends
-    from models import CtmBenchYastnBasic, CtmBenchYastnDoublePepsTensor, CtmBenchYastnDoublePepsTensorFuseLayers, CtmBenchUpdate, CtmBenchYastnBasicFused
+    from models import CtmBenchYastnBasic, CtmBenchYastnDoublePepsTensor, CtmBenchYastnDoublePepsTensorFuseLayers, CtmBenchUpdate, \
+        CtmBenchYastnBasicFused, CtmBenchUpdateMP
     models = {"CtmBenchYastnBasic": CtmBenchYastnBasic,
               "CtmBenchYastnBasicFused": CtmBenchYastnBasicFused,
               "CtmBenchYastnDoublePepsTensor": CtmBenchYastnDoublePepsTensor,
               "CtmBenchYastnDoublePepsTensorFuseLayers": CtmBenchYastnDoublePepsTensorFuseLayers,
-              "CtmBenchUpdate": CtmBenchUpdate}
+              "CtmBenchUpdate": CtmBenchUpdate,
+              "CtmBenchUpdateMP": CtmBenchUpdateMP}
 
     # identify models and input files to run
     use_models = [model for model in models if args.model in model]
