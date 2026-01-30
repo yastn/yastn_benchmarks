@@ -4,3 +4,4 @@ from .model_yastn_basic_fused import CtmBenchYastnBasicFused
 from .model_yastn_DoublePepsTensor import CtmBenchYastnDoublePepsTensor
 from .model_yastn_DoublePepsTensor_fuse_layers import CtmBenchYastnDoublePepsTensorFuseLayers
 from .model_yastn_ctmrg import CtmBenchUpdate
+from .model_yastn_ctmrg_mp import CtmBenchUpdateMP

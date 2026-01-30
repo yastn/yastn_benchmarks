@@ -37,7 +37,6 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
         """
         Read tensors legs and other information into dictionary self.input
         """
-
         self.bench_pipeline = []
         self.params = {}
 
@@ -47,7 +46,7 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
         if not config["lru_cache"]:
             yastn.set_cache_maxsize(maxsize=0)
         self.config = yastn.make_config(sym=self.input["symmetry"], **config)
-        self.config.backend.random_seed(seed=0)  # makes outputs of different models comparable
+        self.config.backend.random_seed(seed=0)  # TODO allow for different seeds
 
         self.use_nvtx = ("torch" in self.config.backend.BACKEND_ID) and self.config.backend.cuda_is_available()
 
