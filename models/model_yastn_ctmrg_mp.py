@@ -59,6 +59,7 @@ class CtmBenchUpdateMP(CtmBenchUpdate):
         print("backend:", self.config.backend, file=file)
         print("sym:", self.config.sym, file=file)
         print("default_fusion:", self.config.default_fusion, file=file)
+        print("devices: ", self.params['devices'], file=file)
         print("", file=file)
         print("Cache info", file=file)  # auxiliary information from lru_cache
         for rec in yastn.get_cache_info().items():
@@ -81,8 +82,10 @@ class CtmBenchUpdateMP(CtmBenchUpdate):
             moves='hv', max_sweeps=self.params['max_sweeps'], 
             iterator=False, corner_tol=-1, truncation_f = None)
         
-        X= self.env.calculate_corner_svd()
-        import pdb; pdb.set_trace()
+        if 'f_out' in self.params and self.params['f_out']:
+            env_spec= self.env.calculate_corner_svd()
+            for k,v in env_spec.items():
+                print(f"{k} {v.get_legs(axes=0).t} {v.get_legs(axes=0).D}", file=self.params['f_out'])
 
     def final_cleanup(self):
         yastn.clear_cache()  # yastn is using lru_cache to store contraction logic

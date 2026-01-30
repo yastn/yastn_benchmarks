@@ -56,6 +56,7 @@ def run_bench(model, args):
 
     with contextlib.ExitStack() as stack:
         f = stack.enter_context(open(fname_out, 'w')) if fname_out else sys.stdout
+        bench.params.update({'f_out': f})
 
         bench.print_header(file=f)
 
@@ -79,8 +80,6 @@ def run_bench(model, args):
                 current, peak =  tracemalloc.get_traced_memory()
                 print(f"memory: {readable_size(current)}, {readable_size(peak)}", file=f)
                 tracemalloc.stop()
-            else:
-                timeit.repeat(stmt=f'bench.{task}()', repeat=1, number=1, globals=locals())
 
         bench.print_properties(file=f)
         bench.final_cleanup()
