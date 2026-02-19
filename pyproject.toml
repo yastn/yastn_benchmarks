@@ -1,0 +1,18 @@
+[build-system]
+requires = [
+    "setuptools"
+    ]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yastn-benchmarks"
+version = "0.1.0"
+description = "Benchmarks for YASTN tensor network library"
+authors = [
+    { name="The YASTN Authors" }
+]
+requires-python = ">=3.8"
+dependencies = [
+    "yastn",
+    "nvtx"
+]

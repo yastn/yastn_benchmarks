@@ -86,6 +86,13 @@ def run_bench(model, args):
 
 
 if __name__ == "__main__":
+    models = {"CtmBenchYastnBasic": None,
+              "CtmBenchYastnBasicFused": None,
+              "CtmBenchYastnDoublePepsTensor": None,
+              "CtmBenchYastnDoublePepsTensorFuseLayers": None,
+              "CtmBenchUpdate": None,
+              "CtmBenchUpdateMP": None}
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch', 'torch_cpp'])
     parser.add_argument("-dtype", type=str, default='float64', choices=['float32', 'float64', 'complex64', 'complex128'])
@@ -96,7 +103,8 @@ if __name__ == "__main__":
     parser.add_argument("-memory_profile", dest='memory_profile', action='store_true', help="Profile memory usage with tracemalloc. High overhead.")
     parser.add_argument("-repeat", type=int, default=4, help='Number of repeated runs; passed to timeit')
     parser.add_argument("-fname", type=str, default='Heisenberg_U1_d=2_D=4_chi=30', help="Use glob to match basenames of json files in ./input_shapes")
-    parser.add_argument("-model", type=str, default='Ctm', help="Use 'args.model in model_class_name' to select models")
+    parser.add_argument("-model", type=str, default='Ctm', help="Use 'args.model in model_class_name' to select models",\
+                        choices=list(models.keys()))
     parser.add_argument("-params", type=str, default='', help="Model-specific parameters, e.g. 'dims=(2,2)' for BenchCtmUpdate")
     parser.add_argument(
         "-pipeline",
@@ -118,15 +126,15 @@ if __name__ == "__main__":
     # import models here to set num_threads before importing backends
     from models import CtmBenchYastnBasic, CtmBenchYastnDoublePepsTensor, CtmBenchYastnDoublePepsTensorFuseLayers, CtmBenchUpdate, \
         CtmBenchYastnBasicFused, CtmBenchUpdateMP
-    models = {"CtmBenchYastnBasic": CtmBenchYastnBasic,
-              "CtmBenchYastnBasicFused": CtmBenchYastnBasicFused,
-              "CtmBenchYastnDoublePepsTensor": CtmBenchYastnDoublePepsTensor,
-              "CtmBenchYastnDoublePepsTensorFuseLayers": CtmBenchYastnDoublePepsTensorFuseLayers,
-              "CtmBenchUpdate": CtmBenchUpdate,
-              "CtmBenchUpdateMP": CtmBenchUpdateMP}
+    models["CtmBenchYastnBasic"]= CtmBenchYastnBasic
+    models["CtmBenchYastnBasicFused"]= CtmBenchYastnBasicFused
+    models["CtmBenchYastnDoublePepsTensor"]= CtmBenchYastnDoublePepsTensor
+    models["CtmBenchYastnDoublePepsTensorFuseLayers"]= CtmBenchYastnDoublePepsTensorFuseLayers
+    models["CtmBenchUpdate"]= CtmBenchUpdate
+    models["CtmBenchUpdateMP"]= CtmBenchUpdateMP
 
     # identify models and input files to run
-    use_models = [model for model in models if args.model in model]
+    use_models = [args.model]
     fnames = glob.glob(os.path.join(os.path.dirname(__file__), "input_shapes/", args.fname + '.json'))
     fnames = [Path(fname) for fname in sorted(fnames)]
 
