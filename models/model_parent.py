@@ -17,6 +17,7 @@
 import abc
 import json
 import yastn
+import nvtx as _nvtx
 
 double_layer_D_limit = {"dense": 16, "Z2": 18, "U1": 20, "U1xU1": 25, "U1xU1xZ2": 25}
 
@@ -24,10 +25,10 @@ double_layer_D_limit = {"dense": 16, "Z2": 18, "U1": 20, "U1xU1": 25, "U1xU1xZ2"
 def nvtx(func):
     def wrapper(self, *args, **kwargs):
         if self.use_nvtx:
-            self.config.backend.cuda.nvtx.range_push(f"{type(self).__name__} {func.__name__}")
-        res = func(self, *args, **kwargs)
-        if self.use_nvtx:
-            self.config.backend.cuda.nvtx.range_pop()
+            with _nvtx.annotate(message=f"{type(self).__name__} {func.__name__}", color="green"):
+                res = func(self, *args, **kwargs)
+        else:
+            res = func(self, *args, **kwargs)
         return res
     return wrapper
 

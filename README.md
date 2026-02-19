@@ -1,6 +1,6 @@
 # Benchmarks of YASTN
 
-This repository contains a few benchmarks for [YASTN](https://github.com/yastn/yastn).
+This repository contains benchmarks for [YASTN](https://github.com/yastn/yastn).
 
 ## 2-site DMRG
 
