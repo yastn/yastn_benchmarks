@@ -91,7 +91,9 @@ if __name__ == "__main__":
               "CtmBenchYastnDoublePepsTensor": None,
               "CtmBenchYastnDoublePepsTensorFuseLayers": None,
               "CtmBenchUpdate": None,
-              "CtmBenchUpdateMP": None}
+              "CtmBenchUpdateMP": None,
+              "CtmBenchContraction1x1": None,
+              "CtmBenchContraction2x3": None,}
     
     parser = argparse.ArgumentParser()
     parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch', 'torch_cpp'])
@@ -109,14 +111,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "-pipeline",
         nargs="*",
-        choices=["all", "precompute_A_mat", "enlarged_corner", "fuse_enlarged_corner", "svd_enlarged_corner", "ctmrg_update"],
+        choices=["all", "contract", "precompute_A_mat", "enlarged_corner", "fuse_enlarged_corner", "svd_enlarged_corner", "ctmrg_update"],
         default=["all"],
-        help="Pipeline steps to run (any combination of the choices); provide multiple values separated by space.",
+        help="Pipeline steps to run (any combination of the choices); provide multiple values separated by space."\
+            + "Specific steps depend on the model; check the model's bench_pipeline attribute for available steps. By default, all steps are run.",
     )
-    parser.add_argument("-num_threads", type=str, default='none', choices=['none'] + [str(n) for n in range(1, 33)])
+    parser.add_argument("-num_threads", type=str, default='none', help="Set number of threads for CPU backends; Use 'none' to keep default settings.")
     args = parser.parse_args()
 
-    if args.num_threads != 'none':
+    if args.num_threads.lower() != 'none':
         os.environ["OMP_NUM_THREADS"] = args.num_threads
         os.environ["OPENBLAS_NUM_THREADS"] = args.num_threads
         os.environ["MKL_NUM_THREADS"] = args.num_threads
@@ -125,13 +128,16 @@ if __name__ == "__main__":
 
     # import models here to set num_threads before importing backends
     from models import CtmBenchYastnBasic, CtmBenchYastnDoublePepsTensor, CtmBenchYastnDoublePepsTensorFuseLayers, CtmBenchUpdate, \
-        CtmBenchYastnBasicFused, CtmBenchUpdateMP
+        CtmBenchYastnBasicFused, CtmBenchUpdateMP, CtmBenchContraction1x1, CtmBenchContraction2x3
     models["CtmBenchYastnBasic"]= CtmBenchYastnBasic
     models["CtmBenchYastnBasicFused"]= CtmBenchYastnBasicFused
     models["CtmBenchYastnDoublePepsTensor"]= CtmBenchYastnDoublePepsTensor
     models["CtmBenchYastnDoublePepsTensorFuseLayers"]= CtmBenchYastnDoublePepsTensorFuseLayers
     models["CtmBenchUpdate"]= CtmBenchUpdate
     models["CtmBenchUpdateMP"]= CtmBenchUpdateMP
+    models["CtmBenchContraction1x1"]= CtmBenchContraction1x1
+    models["CtmBenchContraction2x3"]= CtmBenchContraction2x3
+
 
     # identify models and input files to run
     use_models = [args.model]
