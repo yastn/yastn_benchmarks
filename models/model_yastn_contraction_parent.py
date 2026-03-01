@@ -28,7 +28,8 @@ class CtmBenchContractionParent(CtmBenchParent):
         super().__init__(fname, config)
         self.bench_pipeline = ["contract",]
         self.params = {'seed': 0,
-                       'dense': False }  # default params
+                       'dense': False,
+                       'optimizer': "default" }  # default params
         for k in self.params:
             if k in kwargs:
                 self.params[k] = kwargs[k]

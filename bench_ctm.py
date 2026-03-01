@@ -93,7 +93,8 @@ if __name__ == "__main__":
               "CtmBenchUpdate": None,
               "CtmBenchUpdateMP": None,
               "CtmBenchContraction1x1": None,
-              "CtmBenchContraction2x3": None,}
+              "CtmBenchContraction2x3": None,
+              "CtmBenchContractionLxLy": None,}
     
     parser = argparse.ArgumentParser()
     parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch', 'torch_cpp'])
@@ -128,7 +129,7 @@ if __name__ == "__main__":
 
     # import models here to set num_threads before importing backends
     from models import CtmBenchYastnBasic, CtmBenchYastnDoublePepsTensor, CtmBenchYastnDoublePepsTensorFuseLayers, CtmBenchUpdate, \
-        CtmBenchYastnBasicFused, CtmBenchUpdateMP, CtmBenchContraction1x1, CtmBenchContraction2x3
+        CtmBenchYastnBasicFused, CtmBenchUpdateMP, CtmBenchContraction1x1, CtmBenchContraction2x3, CtmBenchContractionLxLy
     models["CtmBenchYastnBasic"]= CtmBenchYastnBasic
     models["CtmBenchYastnBasicFused"]= CtmBenchYastnBasicFused
     models["CtmBenchYastnDoublePepsTensor"]= CtmBenchYastnDoublePepsTensor
@@ -137,6 +138,7 @@ if __name__ == "__main__":
     models["CtmBenchUpdateMP"]= CtmBenchUpdateMP
     models["CtmBenchContraction1x1"]= CtmBenchContraction1x1
     models["CtmBenchContraction2x3"]= CtmBenchContraction2x3
+    models["CtmBenchContractionLxLy"]= CtmBenchContractionLxLy
 
 
     # identify models and input files to run
