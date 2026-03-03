@@ -29,6 +29,8 @@ class CtmBenchContractionParent(CtmBenchParent):
         self.bench_pipeline = ["contract",]
         self.params = {'seed': 0,
                        'dense': False,
+                       'checkpoint_loop': False,
+                       'unroll': None,
                        'optimizer': "default" }  # default params
         for k in self.params:
             if k in kwargs:
@@ -72,8 +74,9 @@ class CtmBenchContractionParent(CtmBenchParent):
 
 
     def compute_contraction_path(self, *tn, names=None, **kwargs):
-        path, path_info = yastn.tensor.oe_blocksparse.get_contraction_path(*tn, names=names, 
-                                                         who=self.__class__.__name__, **kwargs)
+        path, path_info = yastn.tensor.oe_blocksparse.get_contraction_path(*tn, 
+                            unroll=self.params['unroll'], names=names, 
+                            who=self.__class__.__name__, **kwargs)
         return path, path_info
 
 
@@ -108,5 +111,8 @@ class CtmBenchContractionParent(CtmBenchParent):
     @nvtx
     def contract(self):
         self.tensors["result"] = yastn.tensor.oe_blocksparse.contract_with_unroll(
-                *self.tn, optimize=self.path, who=self.__class__.__name__
+                *self.tn, optimize=self.path, unroll=self.params['unroll'],
+                checkpoint_loop=self.params['checkpoint_loop'], 
+                who=self.__class__.__name__
             )
+        result= float(self.tensors["result"]._data[0]) # force synchronization
