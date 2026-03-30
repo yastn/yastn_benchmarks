@@ -33,8 +33,11 @@ def fname_output(bench, fname, args):
     fpath = os.path.dirname(__file__)
     device = args.device.replace(":", "-")
     ss = f"{fpath}/results_ctm/{type(bench).__name__}/"
-    if bench.params:
-        ss += '_'.join(f"{k}={v}" for k, v in sorted(bench.params.items())) + '/'
+    _skip_path_keys = {'f_out', 'unroll', 'sites'}
+    path_params = {k: v for k, v in bench.params.items()
+                   if k not in _skip_path_keys and v is not None and v is not False and v != 0}
+    if path_params:
+        ss += '_'.join(f"{k}={v}" for k, v in sorted(path_params.items())) + '/'
     ss += f"{args.dtype}/num_threads={args.num_threads}/policy={args.tensordot_policy}/lru_cache={args.lru_cache}/{args.backend}/{device}"
     path = Path(ss)
     path.mkdir(parents=True, exist_ok=True)
@@ -46,6 +49,8 @@ def run_bench(model, args):
     """
     config = {"backend": args.backend, "default_device": args.device, "default_dtype": args.dtype,
               "lru_cache": args.lru_cache, "tensordot_policy": args.tensordot_policy}
+    if args.fermionic is not None:
+        config["fermionic"] = ast.literal_eval(args.fermionic)
     #
     expr = ast.parse(f"dict({args.params}\n)", mode="eval")
     kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in expr.body.keywords}
@@ -65,23 +70,28 @@ def run_bench(model, args):
             assert all([(t in bench.bench_pipeline) for t in args.pipeline]), \
                 f"Some provided pipeline tasks are not in the model's benchmark pipeline. {tasks}"
             tasks = [t for t in bench.bench_pipeline if (t in args.pipeline)]
-        print(f"Model = {type(bench).__name__}; fname = {fname.name}")
-        print(f"Selected pipeline tasks to run: {tasks}")
+        print(f"Model = {type(bench).__name__}; fname = {fname.name}", file=f, flush=True)
+        print(f"backend = {args.backend}; device = {args.device}; dtype = {args.dtype}", file=f, flush=True)
+        print(f"num_threads = {args.num_threads}; tensordot_policy = {args.tensordot_policy}; lru_cache = {args.lru_cache}", file=f, flush=True)
+        if args.fermionic is not None:
+            print(f"fermionic = {args.fermionic}", file=f, flush=True)
+        print(f"Selected pipeline tasks to run: {tasks}", file=f, flush=True)
         for task in tasks:
             try:
                 times = timeit.repeat(stmt=f'bench.{task}()', repeat=args.repeat, number=1, globals=locals())
             except AssertionError:
                 print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
                 return None
-            print(task + "; times [seconds]", file=f)
-            print(*(f"{t:.4f}" for t in times), file=f)
+            print(task + "; times [seconds]", file=f, flush=True)
+            print(*(f"{t:.4f}" for t in times), file=f, flush=True)
             if args.memory_profile:
                 tracemalloc.start()
                 current, peak =  tracemalloc.get_traced_memory()
-                print(f"memory: {readable_size(current)}, {readable_size(peak)}", file=f)
+                print(f"memory: {readable_size(current)}, {readable_size(peak)}", file=f, flush=True)
                 tracemalloc.stop()
 
         bench.print_properties(file=f)
+        f.flush()
         bench.final_cleanup()
 
 
@@ -94,14 +104,18 @@ if __name__ == "__main__":
               "CtmBenchUpdateMP": None,
               "CtmBenchContraction1x1": None,
               "CtmBenchContraction2x2": None,
+              "CtmBenchContraction2x2Measure": None,
               "CtmBenchContraction2x3": None,
-              "CtmBenchContractionLxLy": None,}
+              "CtmBenchContractionLxLy": None,
+              "CtmBenchMeasureNconFermionic": None,}
     
     parser = argparse.ArgumentParser()
     parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch', 'torch_cpp'])
     parser.add_argument("-dtype", type=str, default='float64', choices=['float32', 'float64', 'complex64', 'complex128'])
     parser.add_argument("-device", type=str, default='cpu', help="cpu, cuda, cuda:<device_id>, etc.")
     parser.add_argument("-tensordot_policy", type=str, default='no_fusion', choices=['fuse_to_matrix', 'fuse_contracted', 'no_fusion'])
+    parser.add_argument("-fermionic", type=str, default=None,
+                        help="Optional Python literal passed to yastn.make_config as fermionic, e.g. 'True' or '(False, False, True)'.")
     parser.add_argument("-no_lru_cache", dest='lru_cache', action='store_false', help="Yastn is using lru_cache to back up algebra of symmetries. Use this option to switch it off.")
     parser.add_argument("-stdout", dest='to_file', action='store_false', help="By default, write results to files in /results; Use this option to print to stdout.")
     parser.add_argument("-memory_profile", dest='memory_profile', action='store_true', help="Profile memory usage with tracemalloc. High overhead.")
@@ -138,8 +152,10 @@ if __name__ == "__main__":
     models["CtmBenchUpdateMP"]= CtmBenchUpdateMP
     models["CtmBenchContraction1x1"]= CtmBenchContraction1x1
     models["CtmBenchContraction2x2"]= CtmBenchContraction2x2
+    models["CtmBenchContraction2x2Measure"]= CtmBenchContraction2x2Measure
     models["CtmBenchContraction2x3"]= CtmBenchContraction2x3
     models["CtmBenchContractionLxLy"]= CtmBenchContractionLxLy
+    models["CtmBenchMeasureNconFermionic"]= CtmBenchMeasureNconFermionic
 
 
     # identify models and input files to run
