@@ -27,13 +27,50 @@ def readable_size(size):
     size_list = [f'{int(size):,} B'] + [f'{int(size) / 1024 ** (i + 1):,.2f} {u}' for i, u in enumerate(units)]
     return [size for size in size_list if not size.startswith('0.')][-1]
 
+
+def parse_devices_arg(value):
+    if value is None:
+        return None
+    try:
+        return ast.literal_eval(value)
+    except (ValueError, SyntaxError):
+        devices = [d.strip() for d in value.split(',') if d.strip()]
+        if not devices:
+            raise ValueError(f"Could not parse devices argument: {value}")
+        return devices
+
+
+def format_devices_suffix(value):
+    devices = parse_devices_arg(value)
+    if devices is None:
+        return None
+    if not isinstance(devices, (list, tuple)):
+        devices = [devices]
+    devices = [str(d) for d in devices]
+    if len(devices) == 1:
+        return f"devices={devices[0]}"
+
+    prefixes = []
+    suffixes = []
+    for dev in devices:
+        if ":" not in dev:
+            return "devices=" + "_".join(devices)
+        prefix, suffix = dev.split(":", 1)
+        prefixes.append(prefix)
+        suffixes.append(suffix)
+
+    if len(set(prefixes)) == 1:
+        return f"devices={prefixes[0]}:{'_'.join(suffixes)}"
+    return "devices=" + "_".join(devices)
+
+
 def fname_output(bench, fname, args):
     if args.to_file is False:
         return None
     fpath = os.path.dirname(__file__)
     device = args.device.replace(":", "-")
     ss = f"{fpath}/results_ctm/{type(bench).__name__}/"
-    _skip_path_keys = {'f_out', 'unroll', 'sites'}
+    _skip_path_keys = {'f_out', 'unroll', 'sites', 'devices'}
     path_params = {k: v for k, v in bench.params.items()
                    if k not in _skip_path_keys and v is not None and v is not False and v != 0}
     if path_params:
@@ -41,7 +78,11 @@ def fname_output(bench, fname, args):
     ss += f"{args.dtype}/num_threads={args.num_threads}/policy={args.tensordot_policy}/lru_cache={args.lru_cache}/{args.backend}/{device}"
     path = Path(ss)
     path.mkdir(parents=True, exist_ok=True)
-    return path / f"{fname.stem}.out"
+    stem = fname.stem
+    devices_suffix = format_devices_suffix(args.devices)
+    if devices_suffix is not None:
+        stem += f"_{devices_suffix}"
+    return path / f"{stem}.out"
 
 def run_bench(model, args):
     """
@@ -54,6 +95,8 @@ def run_bench(model, args):
     #
     expr = ast.parse(f"dict({args.params}\n)", mode="eval")
     kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in expr.body.keywords}
+    if args.devices is not None:
+        kwargs["devices"] = parse_devices_arg(args.devices)
     #
     bench = model(fname, config, **kwargs)
     #
@@ -75,6 +118,8 @@ def run_bench(model, args):
         print(f"num_threads = {args.num_threads}; tensordot_policy = {args.tensordot_policy}; lru_cache = {args.lru_cache}", file=f, flush=True)
         if args.fermionic is not None:
             print(f"fermionic = {args.fermionic}", file=f, flush=True)
+        if args.devices is not None:
+            print(f"devices = {args.devices}", file=f, flush=True)
         print(f"Selected pipeline tasks to run: {tasks}", file=f, flush=True)
         for task in tasks:
             try:
@@ -113,6 +158,8 @@ if __name__ == "__main__":
     parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch', 'torch_cpp'])
     parser.add_argument("-dtype", type=str, default='float64', choices=['float32', 'float64', 'complex64', 'complex128'])
     parser.add_argument("-device", type=str, default='cpu', help="cpu, cuda, cuda:<device_id>, etc.")
+    parser.add_argument("-devices", type=str, default=None,
+                        help="Optional device list for multi-device unrolled contraction, e.g. \"['cuda:0', 'cuda:1']\" or \"cuda:0,cuda:1\".")
     parser.add_argument("-tensordot_policy", type=str, default='no_fusion', choices=['fuse_to_matrix', 'fuse_contracted', 'no_fusion'])
     parser.add_argument("-fermionic", type=str, default=None,
                         help="Optional Python literal passed to yastn.make_config as fermionic, e.g. 'True' or '(False, False, True)'.")

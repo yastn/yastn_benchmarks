@@ -313,6 +313,7 @@ class CtmBenchMeasureNconFermionic(CtmBenchContractionParent):
             optimize=self.path,
             unroll=self.params['unroll'],
             checkpoint_loop=self.params['checkpoint_loop'],
+            devices=self.params['devices'],
             swap=self.swap_pairs,
             who=self.__class__.__name__,
         )
