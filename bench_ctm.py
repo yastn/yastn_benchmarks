@@ -15,6 +15,7 @@
 import argparse
 import ast
 import contextlib
+import gc
 import glob
 import os
 from pathlib import Path
@@ -122,13 +123,29 @@ def run_bench(model, args):
             print(f"devices = {args.devices}", file=f, flush=True)
         print(f"Selected pipeline tasks to run: {tasks}", file=f, flush=True)
         for task in tasks:
-            try:
-                times = timeit.repeat(stmt=f'bench.{task}()', repeat=args.repeat, number=1, globals=locals())
-            except AssertionError:
-                print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
-                return None
             print(task + "; times [seconds]", file=f, flush=True)
+            times = []
+            results = []
+            for r in range(args.repeat):
+                gc.collect()
+                if args.backend == 'torch' and 'cuda' in args.device:
+                    import torch
+                    torch.cuda.empty_cache()
+                try:
+                    t = timeit.timeit(stmt=f'bench.{task}()', number=1, globals=locals())
+                except AssertionError:
+                    print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
+                    return None
+                times.append(t)
+                result_val = None
+                if hasattr(bench, 'tensors') and 'result' in bench.tensors:
+                    result_val = float(bench.tensors['result']._data[0])
+                    del bench.tensors['result']
+                results.append(result_val)
+                print(f"  run {r+1}/{args.repeat}: {t:.4f}", file=f, flush=True)
             print(*(f"{t:.4f}" for t in times), file=f, flush=True)
+            if any(r is not None for r in results):
+                print("results:", *(f"{r}" for r in results), file=f, flush=True)
             if args.memory_profile:
                 tracemalloc.start()
                 current, peak =  tracemalloc.get_traced_memory()
