@@ -59,7 +59,7 @@ class CtmBenchContractionLxLy(CtmBenchContractionParent):
         # self.input.items() # contains user supplied legs
         tensor_ids, inputs, output, legs_dict = self.build_network(self.legs)
 
-        self.tensors= self.make_tensors(tensor_ids, inputs, legs_dict)
+        self.tensors= self.make_tensors_simple(tensor_ids, inputs, legs_dict)
         self.tn= sum(zip([self.tensors[t_id] for t_id in tensor_ids], inputs) , ()) + (tuple(output) if len(output)>0 else ((),))
         
         self.path, self.path_info= self.compute_contraction_path(*self.tn, names=tuple(tensor_ids), 

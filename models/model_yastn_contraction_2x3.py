@@ -45,12 +45,8 @@ class CtmBenchContraction2x3(CtmBenchContractionParent):
         #
         # Every label can appear at most twice (contracted leg pair) otherwise, the label is corresponsing to an open leg.  
         super().__init__(fname, config, **kwargs)
+        self.params['open_idx']= kwargs.get('open_idx', [])
 
-        self.idx_labels= { 
-            "a_leg_t": [2,3,16,45, 5,6,17,46, 9,10,20, 12,13,22, 40,47,41, 42,48,43, 21,49, 23,50, 26,37,27, 28,38,29, 32,33, 34,35],
-            "Tt_leg_l": [0,15, 8,7, 19,51, 30,31, 36,25, 24,39, 44,1],
-            "a_leg_s": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111] 
-        }
         self._gen_network_spec = lambda I,I_out : (
             "C1",[0,1],"T1",[1,2,5,44],"T4",[0,15,3,6],"a",[I[0],2,3,16,45],"a.conj()",[I[1],5,6,17,46],\
             "T4_y",[15,8,9,12],"C4_y",[8,7],"T3_y",[10,13,7,19],"a_y",[I[6],16,9,10,20],"a_y.conj()",[I[7],17,12,13,22],\
@@ -60,15 +56,15 @@ class CtmBenchContraction2x3(CtmBenchContractionParent):
             "T1_x",[44,40,42,39],"a_x",[I[2],40,45,47,41],"a_x.conj()",[I[3],42,46,48,43],I_out)
 
         # self.input.items() # contains user supplied legs
-        tensor_ids, inputs, output, legs_dict = self.build_network(self.legs)
+        tensor_ids, inputs, output = self.build_network(open_idx=self.params['open_idx'])
 
-        self.tensors= self.make_tensors(tensor_ids, inputs, legs_dict)
+        self.tensors= self.make_tensors_peps_torch_tn_convention(tensor_ids, inputs, self.legs)
         self.tn= sum(zip([self.tensors[t_id] for t_id in tensor_ids], inputs) , ()) + (tuple(output) if len(output)>0 else ((),))
         
         self.path, self.path_info= self.compute_contraction_path(*self.tn, names=tuple(tensor_ids), optimizer="default") # dynamic-programming
 
 
-    def build_network(self, legs, open_idx=[]):
+    def build_network(self, open_idx=[]):
         """
         """
         # optionally allows to keep some physical indices open 
@@ -76,16 +72,13 @@ class CtmBenchContraction2x3(CtmBenchContractionParent):
         I= sum([[100+2*x,100+2*x+1] if x in open_idx else [100+2*x]*2 for x in [0,1,2,3,4,5]],[])
         I_out= [100+2*x for x in open_idx]+[100+2*x+1 for x in open_idx]
 
-        assert set(self.idx_labels.keys()) <= set(legs.keys()), \
-            f"Legs have to provided for every unique leg in the network. Expected {set(self.idx_labels.keys())}, got {set(legs.keys())}"
         tn= self._gen_network_spec(I,I_out)
 
         tensor_ids = [tn[i] for i in range(0,len(tn)-1,2)]
         inputs = [tuple(tn[i]) for i in range(1,len(tn)-1,2)]
         output = tuple(tn[-1])
-        legs_dict = { idx: legs[k] for k in self.idx_labels for idx in self.idx_labels[k] }
 
-        return tensor_ids, inputs, output, legs_dict
+        return tensor_ids, inputs, output
     
 
     def print_header(self, file=None):

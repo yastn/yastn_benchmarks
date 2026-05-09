@@ -70,7 +70,8 @@ def run_bench(model, args):
         for task in tasks:
             try:
                 times = timeit.repeat(stmt=f'bench.{task}()', repeat=args.repeat, number=1, globals=locals())
-            except AssertionError:
+            except AssertionError as e:
+                raise e
                 print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
                 return None
             print(task + "; times [seconds]", file=f)
