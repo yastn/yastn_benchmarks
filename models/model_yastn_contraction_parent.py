@@ -31,7 +31,8 @@ class CtmBenchContractionParent(CtmBenchParent):
                        'dense': False,
                        'checkpoint_loop': False,
                        'unroll': None,
-                       'optimizer': "default" }  # default params
+                       'optimizer': "default",
+                       'devices': None}  # default params
         for k in self.params:
             if k in kwargs:
                 self.params[k] = kwargs[k]
@@ -39,11 +40,11 @@ class CtmBenchContractionParent(CtmBenchParent):
         # self.input.items() # contains user supplied legs
         self.legs = {k: yastn.Leg(self.config, s=v['signature'], t=v['charges'], D=v['dimensions'])
                 for k, v in self.input.items() if "leg" in k}
-        if self.params['dense']: 
+        if self.params['dense']:
             self.config= self.config._replace(sym=yastn.sym.sym_none)
             for k in self.legs:
                 self.legs[k]= yastn.Leg(s=self.legs[k].s, t=(), D=(sum(self.legs[k].D),))
-    
+
 
     def make_tensors_simple(self, tensor_ids, inputs, legs_dict, **kwargs):
         """
@@ -119,8 +120,8 @@ class CtmBenchContractionParent(CtmBenchParent):
 
 
     def compute_contraction_path(self, *tn, names=None, **kwargs):
-        path, path_info = yastn.tensor.oe_blocksparse.get_contraction_path(*tn, 
-                            unroll=self.params['unroll'], names=names, 
+        path, path_info = yastn.tensor.oe_blocksparse.get_contraction_path(*tn,
+                            unroll=self.params['unroll'], names=names,
                             who=self.__class__.__name__, **kwargs)
         return path, path_info
 
@@ -157,7 +158,8 @@ class CtmBenchContractionParent(CtmBenchParent):
     def contract(self):
         self.tensors["result"] = yastn.tensor.oe_blocksparse.contract_with_unroll(
                 *self.tn, optimize=self.path, unroll=self.params['unroll'],
-                checkpoint_loop=self.params['checkpoint_loop'], 
+                checkpoint_loop=self.params['checkpoint_loop'],
+                devices=self.params['devices'],
                 who=self.__class__.__name__
             )
         result= float(self.tensors["result"]._data[0]) # force synchronization
