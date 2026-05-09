@@ -5,3 +5,9 @@ from .model_yastn_DoublePepsTensor import CtmBenchYastnDoublePepsTensor
 from .model_yastn_DoublePepsTensor_fuse_layers import CtmBenchYastnDoublePepsTensorFuseLayers
 from .model_yastn_ctmrg import CtmBenchUpdate
 from .model_yastn_ctmrg_mp import CtmBenchUpdateMP
+from .model_yastn_contraction_1x1 import CtmBenchContraction1x1
+from .model_yastn_contraction_2x2 import CtmBenchContraction2x2
+from .model_yastn_contraction_2x2_measure import CtmBenchContraction2x2Measure
+from .model_yastn_contraction_2x3 import CtmBenchContraction2x3
+from .model_yastn_contraction_LxLy import CtmBenchContractionLxLy
+from .model_yastn_measure_ncon import CtmBenchMeasureNconFermionic
