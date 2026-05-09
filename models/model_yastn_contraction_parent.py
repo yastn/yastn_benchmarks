@@ -46,7 +46,7 @@ class CtmBenchContractionParent(CtmBenchParent):
                 self.legs[k]= yastn.Leg(s=self.legs[k].s, t=(), D=(sum(self.legs[k].D),))
 
 
-    def make_tensors(self, tensor_ids, inputs, legs_dict, **kwargs):
+    def make_tensors_simple(self, tensor_ids, inputs, legs_dict, **kwargs):
         """
         Create tensors according to the network specification and supplied legs.
         The signature adjustment for contracted leg pairs is done on the fly.
@@ -71,6 +71,51 @@ class CtmBenchContractionParent(CtmBenchParent):
                     raise ValueError(f"Label {l} appears more than twice in the network specification, which is not allowed.")
             # TODO other than uniform random tensors
             tensors[t_id] = yastn.rand(self.config, legs=t_legs)
+        return tensors
+
+
+    def make_tensors_peps_torch_tn_convention(self, tensor_ids, inputs, legs_dict, **kwargs):
+        """
+        Create tensors according to the network specification and supplied legs.
+        The signature adjustment for contracted leg pairs is done on the fly.
+        """
+        tensors= {}
+        leg_dir={"1": "t", "2": "r", "3": "b", "4": "l"}
+
+        # loop through the tensors in the network
+        # For boundary tensors, signature of env indices follows either clock (-)->(+) or anti-clockwise (+)->(-) order
+        for t_id in tensor_ids:
+            t_legs = []
+            if t_id[:2] in ["T1","T2","T3","T4"]: # edge tensor
+                t_dir= t_id[1] # edge tensor
+                aux_leg_ind= "a_leg_"+ leg_dir[f"{(int(t_dir)+1)%4+1}"]
+                aux_legs= [ legs_dict[aux_leg_ind], legs_dict[aux_leg_ind].conj() ]
+                if t_id[1]=="1": # T1 edge tensor
+                    t_legs= [ legs_dict["Tt_leg_l"], *aux_legs, legs_dict["Tt_leg_r"] ]
+                if t_id[1]=="2": # T2 edge tensor
+                    t_legs= [ legs_dict["Tr_leg_t"], *aux_legs, legs_dict["Tr_leg_b"] ]
+                if t_id[1]=="3": # T3 edge tensor
+                    t_legs= [ *aux_legs, legs_dict["Tt_leg_l"].conj(), legs_dict["Tt_leg_r"].conj() ]
+                if t_id[1]=="4": # T4 edge tensor
+                    t_legs= [ legs_dict["Tr_leg_t"].conj(),  legs_dict["Tr_leg_b"].conj(), *aux_legs ]
+            elif t_id[:2] in ["C1","C2","C3","C4"]: # corner tensor
+                if t_id[1]=="1":
+                    t_legs= [ legs_dict["Tr_leg_t"], legs_dict["Tt_leg_l"].conj() ]
+                if t_id[1]=="2":
+                    t_legs= [ legs_dict["Tt_leg_r"].conj(), legs_dict["Tr_leg_t"].conj() ]
+                if t_id[1]=="3":
+                    t_legs= [ legs_dict["Tr_leg_b"].conj(), legs_dict["Tt_leg_r"] ]
+                if t_id[1]=="4":
+                    t_legs= [ legs_dict["Tr_leg_b"], legs_dict["Tt_leg_l"] ]
+            # otherwise a site tensor
+            else:
+                t_legs= [ legs_dict["a_leg_s"],] + ( legs_dict["a_leg_a"] if "a_leg_a" in legs_dict else [] ) \
+                    + [legs_dict["a_leg_"+leg_dir[t_dir]] for t_dir in ["1","4","3","2"]]
+            T = yastn.rand(self.config, legs=t_legs) 
+            tensors[t_id]= T.conj() if ("*" in t_id) or ("conj()" in t_id) else T
+        
+        import pdb; pdb.set_trace()  # for debugging
+        
         return tensors
 
 
