@@ -113,9 +113,6 @@ class CtmBenchContractionParent(CtmBenchParent):
                     + [legs_dict["a_leg_"+leg_dir[t_dir]] for t_dir in ["1","4","3","2"]]
             T = yastn.rand(self.config, legs=t_legs) 
             tensors[t_id]= T.conj() if ("*" in t_id) or ("conj()" in t_id) else T
-        
-        import pdb; pdb.set_trace()  # for debugging
-        
         return tensors
 
 
