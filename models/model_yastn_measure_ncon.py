@@ -16,14 +16,23 @@ r"""
 Benchmark modelled after ``yastn.tn.fpeps.envs.CtmEnv.measure_nsite_exact_oe``
 (see ``yastn/tn/fpeps/envs/_env_ctm_measure.py``).
 
-Simplifications relative to the real measurement function:
+        j=-1             j=0               j=1          j=Ny-1    j=Ny
+        :               :                 :             :         :
+i=-1   TL --h,-1,-1-- T[0] --h,-1,0-- T[1] -- ... -- h,-1,Ny-1 -- TR
+        |               |               |               |         |
+        v,0,-1             v,0,0          v,0,1          v,0,Ny-1   v,0,Ny
+        |               |               |               |         |
+i=0    L[0]-h,0,-1------*---h,0,0-------*--- ... --h,0,Ny-1------R[0]
+        |               |               |               |         |
+        v,1,-1             v,1,0          v,1,1          v,1,Ny-1  v,1,Ny
+        |               |               |               |         |
+i=1    L[1]-h,1,-1------*---h,1,0-------*--- ... --h,1,Ny-1------R[1]
+        :               :                :              :         :
+        |               |                |              |         |
+        v,Nx,-1             v,Nx,0          v,Nx,1       v,Nx,Ny-1  v,Nx,Ny
+        |               |                |              |         |
+i=Nx   BL --h,Nx,-1-- B[0] --h,Nx,0-- B[1] -- ... -- h,Nx,Ny-1 -- BR
 
-* Edge tensors are created already unfused (4-leg), skipping the
-  ``_uf_middle_padded`` unfuse-and-pad step.
-* Only the operator contraction is timed; the norm contraction and
-  ``sign * val_op / val_no`` normalisation are omitted.
-* All site / edge / corner tensors are random with uniform structure
-  (no position-dependent charge sectors).
 """
 from __future__ import annotations
 
@@ -155,10 +164,20 @@ class CtmBenchMeasureNconFermionic(CtmBenchContractionParent):
     def __init__(self, fname, config, **kwargs):
         super().__init__(fname, config, **kwargs)
         self.params.update({
+            # (Nx, Ny) shape of the synthetic CTM patch tiled with copies of the input site tensor.
             'dims': (2, 2),
+            # Pair of (i, j) site coordinates where the two operators are inserted.
+            # None defaults to the diagonal corners ((0, 0), (Nx-1, Ny-1)).
             'sites': None,
+            # If True, feed Ak and Ab_c into the network as separate 5-leg tensors
+            # (ket/bra layers contracted by einsum). If False, pre-contract them into
+            # an 8-leg double-layer site tensor before handing the network to ncon.
             'separate_layers': False,
+            # If True, attach the operators on the chosen sites and add the fermionic
+            # charge-swap string between them. If False, time the bare network only.
             'insert_operator': True,
+            # If True, dispatch via contract_with_unroll_compute_constants, which
+            # pre-contracts position-independent constants before the timed loop.
             'precontract_constants': False,
         })
         for k in ('dims', 'sites', 'separate_layers', 'insert_operator', 'precontract_constants'):

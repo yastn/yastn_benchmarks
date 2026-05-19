@@ -146,6 +146,7 @@ def run_bench(model, args):
         for task in tasks:
             print(task + "; times [seconds]", file=f, flush=True)
             times = []
+            results = []
             max_blocks_per_run = []
             for r in range(args.repeat):
                 gc.collect()
@@ -161,12 +162,19 @@ def run_bench(model, args):
                 mb, where = block_stats.report()
                 max_blocks_per_run.append(mb)
                 times.append(t)
+                result_val = None
+                if hasattr(bench, 'tensors') and 'result' in bench.tensors:
+                    result_val = float(bench.tensors['result']._data[0])
+                    del bench.tensors['result']
+                results.append(result_val)
                 print(f"  run {r+1}/{args.repeat}: {t:.4f}  max_blocks={mb} ({where})", file=f, flush=True)
             print(*(f"{t:.4f}" for t in times), file=f, flush=True)
             if max_blocks_per_run:
                 overall_max = max(max_blocks_per_run)
                 print(f"max_blocks per run: {max_blocks_per_run}; overall_max={overall_max}",
                       file=f, flush=True)
+            if any(r is not None for r in results):
+                print("results:", *(f"{r}" for r in results), file=f, flush=True)
             if args.memory_profile:
                 tracemalloc.start()
                 current, peak =  tracemalloc.get_traced_memory()
@@ -201,7 +209,7 @@ if __name__ == "__main__":
     parser.add_argument("-mp_workers_per_device", type=int, default=0,
                         help="If >0, dispatch sliced-unroll combos via the multiprocessing path "
                              "(_oe_blocksparse_mp) with this many worker processes per device. "
-                             "Default 0 keeps the in-process (threaded multi-device) path.")
+                             "Default 0 runs serially in-process.")
     parser.add_argument("-tensordot_policy", type=str, default='no_fusion', choices=['fuse_to_matrix', 'fuse_contracted', 'no_fusion'])
     parser.add_argument("-fermionic", type=str, default=None,
                         help="Optional Python literal passed to yastn.make_config as fermionic, e.g. 'True' or '(False, False, True)'.")
