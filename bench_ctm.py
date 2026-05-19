@@ -23,6 +23,9 @@ import sys
 import timeit
 import tracemalloc
 
+import block_stats
+block_stats.install()
+
 def readable_size(size):
     units = ('KB', 'MB', 'GB', 'TB')
     size_list = [f'{int(size):,} B'] + [f'{int(size) / 1024 ** (i + 1):,.2f} {u}' for i, u in enumerate(units)]
@@ -143,19 +146,27 @@ def run_bench(model, args):
         for task in tasks:
             print(task + "; times [seconds]", file=f, flush=True)
             times = []
+            max_blocks_per_run = []
             for r in range(args.repeat):
                 gc.collect()
                 if 'torch' in args.backend and 'cuda' in args.device:
                     import torch
                     torch.cuda.empty_cache()
+                block_stats.reset()
                 try:
                     t = timeit.timeit(stmt=f'bench.{task}()', number=1, globals=locals())
                 except AssertionError:
                     print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
                     return None
+                mb, where = block_stats.report()
+                max_blocks_per_run.append(mb)
                 times.append(t)
-                print(f"  run {r+1}/{args.repeat}: {t:.4f}", file=f, flush=True)
+                print(f"  run {r+1}/{args.repeat}: {t:.4f}  max_blocks={mb} ({where})", file=f, flush=True)
             print(*(f"{t:.4f}" for t in times), file=f, flush=True)
+            if max_blocks_per_run:
+                overall_max = max(max_blocks_per_run)
+                print(f"max_blocks per run: {max_blocks_per_run}; overall_max={overall_max}",
+                      file=f, flush=True)
             if args.memory_profile:
                 tracemalloc.start()
                 current, peak =  tracemalloc.get_traced_memory()
