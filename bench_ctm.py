@@ -15,6 +15,7 @@
 import argparse
 import ast
 import contextlib
+import gc
 import glob
 import os
 from pathlib import Path
@@ -27,13 +28,62 @@ def readable_size(size):
     size_list = [f'{int(size):,} B'] + [f'{int(size) / 1024 ** (i + 1):,.2f} {u}' for i, u in enumerate(units)]
     return [size for size in size_list if not size.startswith('0.')][-1]
 
+
+def parse_devices_arg(value):
+    if value is None:
+        return None
+    try:
+        return ast.literal_eval(value)
+    except (ValueError, SyntaxError):
+        devices = [d.strip() for d in value.split(',') if d.strip()]
+        if not devices:
+            raise ValueError(f"Could not parse devices argument: {value}")
+        return devices
+
+
+def format_devices_suffix(value):
+    devices = parse_devices_arg(value)
+    if devices is None:
+        return None
+    if not isinstance(devices, (list, tuple)):
+        devices = [devices]
+    devices = [str(d) for d in devices]
+    if len(devices) == 1:
+        return f"devices={devices[0]}"
+
+    prefixes = []
+    suffixes = []
+    for dev in devices:
+        if ":" not in dev:
+            return "devices=" + "_".join(devices)
+        prefix, suffix = dev.split(":", 1)
+        prefixes.append(prefix)
+        suffixes.append(suffix)
+
+    if len(set(prefixes)) == 1:
+        return f"devices={prefixes[0]}:{'_'.join(suffixes)}"
+    return "devices=" + "_".join(devices)
+
+
+def compute_mode_tag(devices_arg, mp_workers_per_device):
+    """Dispatch mode label used in output filenames and the run banner.
+
+    Only two modes remain: ``mp{N}`` (multiprocess workers via
+    ``_oe_blocksparse_mp``) and ``serial``.  The in-process multi-device
+    threaded dispatch is no longer supported.
+    """
+    if mp_workers_per_device > 0:
+        return f"mp{mp_workers_per_device}"
+    return "serial"
+
+
 def fname_output(bench, fname, args):
     if args.to_file is False:
         return None
     fpath = os.path.dirname(__file__)
     device = args.device.replace(":", "-")
     ss = f"{fpath}/results_ctm/{type(bench).__name__}/"
-    _skip_path_keys = {'f_out', 'unroll', 'sites'}
+    _skip_path_keys = {'f_out', 'unroll', 'sites', 'devices'}
     path_params = {k: v for k, v in bench.params.items()
                    if k not in _skip_path_keys and v is not None and v is not False and v != 0}
     if path_params:
@@ -41,7 +91,12 @@ def fname_output(bench, fname, args):
     ss += f"{args.dtype}/num_threads={args.num_threads}/policy={args.tensordot_policy}/lru_cache={args.lru_cache}/{args.backend}/{device}"
     path = Path(ss)
     path.mkdir(parents=True, exist_ok=True)
-    return path / f"{fname.stem}.out"
+    stem = fname.stem
+    devices_suffix = format_devices_suffix(args.devices)
+    if devices_suffix is not None:
+        stem += f"_{devices_suffix}"
+    stem += f"_mode={compute_mode_tag(args.devices, args.mp_workers_per_device)}"
+    return path / f"{stem}.out"
 
 def run_bench(model, args):
     """
@@ -54,6 +109,10 @@ def run_bench(model, args):
     #
     expr = ast.parse(f"dict({args.params}\n)", mode="eval")
     kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in expr.body.keywords}
+    if args.devices is not None:
+        kwargs["devices"] = parse_devices_arg(args.devices)
+    if args.mp_workers_per_device > 0:
+        kwargs["mp_workers_per_device"] = args.mp_workers_per_device
     #
     bench = model(fname, config, **kwargs)
     #
@@ -75,14 +134,27 @@ def run_bench(model, args):
         print(f"num_threads = {args.num_threads}; tensordot_policy = {args.tensordot_policy}; lru_cache = {args.lru_cache}", file=f, flush=True)
         if args.fermionic is not None:
             print(f"fermionic = {args.fermionic}", file=f, flush=True)
+        if args.devices is not None:
+            print(f"devices = {args.devices}", file=f, flush=True)
+        dispatch_mode = compute_mode_tag(args.devices, args.mp_workers_per_device)
+        print(f"dispatch = {dispatch_mode}; mp_workers_per_device = {args.mp_workers_per_device}",
+              file=f, flush=True)
         print(f"Selected pipeline tasks to run: {tasks}", file=f, flush=True)
         for task in tasks:
-            try:
-                times = timeit.repeat(stmt=f'bench.{task}()', repeat=args.repeat, number=1, globals=locals())
-            except AssertionError:
-                print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
-                return None
             print(task + "; times [seconds]", file=f, flush=True)
+            times = []
+            for r in range(args.repeat):
+                gc.collect()
+                if 'torch' in args.backend and 'cuda' in args.device:
+                    import torch
+                    torch.cuda.empty_cache()
+                try:
+                    t = timeit.timeit(stmt=f'bench.{task}()', number=1, globals=locals())
+                except AssertionError:
+                    print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
+                    return None
+                times.append(t)
+                print(f"  run {r+1}/{args.repeat}: {t:.4f}", file=f, flush=True)
             print(*(f"{t:.4f}" for t in times), file=f, flush=True)
             if args.memory_profile:
                 tracemalloc.start()
@@ -113,6 +185,12 @@ if __name__ == "__main__":
     parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch', 'torch_cpp'])
     parser.add_argument("-dtype", type=str, default='float64', choices=['float32', 'float64', 'complex64', 'complex128'])
     parser.add_argument("-device", type=str, default='cpu', help="cpu, cuda, cuda:<device_id>, etc.")
+    parser.add_argument("-devices", type=str, default=None,
+                        help="Optional device list for multi-device unrolled contraction, e.g. \"['cuda:0', 'cuda:1']\" or \"cuda:0,cuda:1\".")
+    parser.add_argument("-mp_workers_per_device", type=int, default=0,
+                        help="If >0, dispatch sliced-unroll combos via the multiprocessing path "
+                             "(_oe_blocksparse_mp) with this many worker processes per device. "
+                             "Default 0 keeps the in-process (threaded multi-device) path.")
     parser.add_argument("-tensordot_policy", type=str, default='no_fusion', choices=['fuse_to_matrix', 'fuse_contracted', 'no_fusion'])
     parser.add_argument("-fermionic", type=str, default=None,
                         help="Optional Python literal passed to yastn.make_config as fermionic, e.g. 'True' or '(False, False, True)'.")

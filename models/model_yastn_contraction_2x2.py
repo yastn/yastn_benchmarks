@@ -61,11 +61,10 @@ class CtmBenchContraction2x2(CtmBenchContractionParent):
             "a_xy",[I[6],34,39,29,28],"a_xy.conj()",[I[7],35,40,32,31],I_out)
 
         tensor_ids, inputs, output, legs_dict = self.build_network(self.legs, open_idx=self.params['open_idx'])
-        
+
         self.tensors= self.make_tensors(tensor_ids, inputs, legs_dict)
         self.tn= sum(zip([self.tensors[t_id] for t_id in tensor_ids], inputs) , ()) + ((tuple(output),) if len(output)>0 else ((),))
-        
-        self.path, self.path_info= self.compute_contraction_path(*self.tn, names=tuple(tensor_ids), optimizer="default") # dynamic-programming
+        self.tensor_names = tuple(tensor_ids)
 
 
     def build_network(self, legs, open_idx=[]):

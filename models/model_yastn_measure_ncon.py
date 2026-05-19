@@ -166,8 +166,9 @@ class CtmBenchMeasureNconFermionic(CtmBenchContractionParent):
                 self.params[k] = kwargs[k]
 
         self.swap_pairs = None
+        # contract_with_unroll computes the path internally; only the
+        # precontract_constants path needs it precomputed (see contract()).
         self.path = None
-        self.path_info = None
         self.result = None
         self.tensors = {}
 
@@ -301,21 +302,28 @@ class CtmBenchMeasureNconFermionic(CtmBenchContractionParent):
             self.tensors[f"edge_t_{j}"] = edge
         for j, edge in edges["b"].items():
             self.tensors[f"edge_b_{j}"] = edge
-        self.path, self.path_info = self.compute_contraction_path(*self.tn, optimizer=self.params['optimizer'])
         if self.params['insert_operator']:
             self._clear_operators(tens)
 
     @nvtx
     def contract(self):
-        _contract = contract_with_unroll_compute_constants if self.params['precontract_constants'] else contract_with_unroll
-        self.tensors["result"] = _contract(
-            *self.tn,
-            optimize=self.path,
+        kwargs = dict(
             unroll=self.params['unroll'],
             checkpoint_loop=self.params['checkpoint_loop'],
+            devices=self.params['devices'],
+            mp_workers_per_device=self.params['mp_workers_per_device'],
             swap=self.swap_pairs,
             who=self.__class__.__name__,
         )
+        if self.params['precontract_constants']:
+            # contract_with_unroll_compute_constants requires an explicit path.
+            if self.path is None:
+                self.path, _ = self.compute_contraction_path(*self.tn)
+            self.tensors["result"] = contract_with_unroll_compute_constants(
+                *self.tn, optimize=self.path, **kwargs)
+        else:
+            self.tensors["result"] = contract_with_unroll(
+                *self.tn, optimizer=self.params['optimizer'], **kwargs)
         self.result = self.tensors["result"].to_number()
 
     def print_header(self, file=None):
