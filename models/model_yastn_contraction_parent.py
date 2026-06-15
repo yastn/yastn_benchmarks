@@ -33,7 +33,9 @@ class CtmBenchContractionParent(CtmBenchParent):
                        'unroll': None,
                        'optimizer': "default",
                        'devices': None,
-                       'mp_workers_per_device': 0}  # default params
+                       'mp_workers_per_device': 0,
+                       'per_combo_path': False,
+                       'combo_path_kwargs': None}  # default params
         for k in self.params:
             if k in kwargs:
                 self.params[k] = kwargs[k]
@@ -176,6 +178,8 @@ class CtmBenchContractionParent(CtmBenchParent):
                 checkpoint_loop=self.params['checkpoint_loop'],
                 devices=self.params['devices'],
                 mp_workers_per_device=self.params['mp_workers_per_device'],
+                per_combo_path=self.params['per_combo_path'],
+                combo_path_kwargs=self.params['combo_path_kwargs'],
                 who=self.__class__.__name__
             )
         result= float(self.tensors["result"]._data[0]) # force synchronization

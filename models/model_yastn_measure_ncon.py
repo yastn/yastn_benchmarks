@@ -40,7 +40,7 @@ from .model_parent import nvtx
 from .model_yastn_contraction_parent import CtmBenchContractionParent
 import yastn
 from yastn.tn.fpeps import DoublePepsTensor
-from yastn.tensor.oe_blocksparse import contract_with_unroll, contract_with_unroll_compute_constants
+from yastn.tensor.oe_blocksparse import contract_with_unroll
 
 
 def _build_interleaved_unfused(corners, edges, tens, Nx, Ny):
@@ -176,18 +176,17 @@ class CtmBenchMeasureNconFermionic(CtmBenchContractionParent):
             # If True, attach the operators on the chosen sites and add the fermionic
             # charge-swap string between them. If False, time the bare network only.
             'insert_operator': True,
-            # If True, dispatch via contract_with_unroll_compute_constants, which
-            # pre-contracts position-independent constants before the timed loop.
-            'precontract_constants': False,
+            # If True, treat the JSON-supplied site tensor as the (0,0) entry of a
+            # 2x2 checkerboard iPEPS and build the sublattice-B tensor at sites
+            # with (i+j) % 2 == 1 by sublattice-rotating its physical/ancilla legs.
+            'checkerboard': False,
         })
-        for k in ('dims', 'sites', 'separate_layers', 'insert_operator', 'precontract_constants'):
+        for k in ('dims', 'sites', 'separate_layers', 'insert_operator',
+                  'checkerboard'):
             if k in kwargs:
                 self.params[k] = kwargs[k]
 
         self.swap_pairs = None
-        # contract_with_unroll computes the path internally; only the
-        # precontract_constants path needs it precomputed (see contract()).
-        self.path = None
         self.result = None
         self.tensors = {}
 
@@ -217,29 +216,48 @@ class CtmBenchMeasureNconFermionic(CtmBenchContractionParent):
             self.site_ket = self.site_ket.fuse_legs(axes=(0, 1, 2, 3, (4, 5)))
 
         self.phys_leg = self.site_ket.get_legs(axes=self.site_ket.ndim - 1)
+
+        # Sublattice B for a 2x2 checkerboard. The exported tensor is sublattice A;
+        # B is its partner so that A only ever tiles against B (never A-against-A).
+        # B is A rotated 180 degrees (t<->b, l<->r) with every leg conjugated:
+        #   B.top = conj(A.bottom), B.bottom = conj(A.top),
+        #   B.left = conj(A.right), B.right = conj(A.left).
+        # Then each shared bond closes by construction, e.g. A.bottom == a_leg_b
+        # meets B.top == conj(a_leg_b) regardless of whether a_leg_b == conj(a_leg_t).
+        # (legs are [t, l, b, r, phys]; transpose (2,3,0,1,4) performs the rotation.)
+        self.site_ket_B = None
+        if self.params['checkerboard']:
+            self.site_ket_B = self.site_ket.conj().transpose(axes=(2, 3, 0, 1, 4))
+
         # Use one chi leg per boundary direction across the whole synthetic patch.
         # Reusing the left/right or top/bottom chi legs from a single exported local
         # tensor would make repeated boundary edges inconsistent when tiled.
         self.chi_h_leg = self.legs["Tt_leg_l"]
         self.chi_v_leg = self.legs["Tr_leg_t"]
 
-        self.edge_t = yastn.rand(
-            self.config,
-            legs=[self.chi_h_leg, self.legs["a_leg_t"].conj(), self.legs["a_leg_t"], self.chi_h_leg.conj()],
-        )
-        self.edge_b = yastn.rand(
-            self.config,
-            legs=[self.chi_h_leg, self.legs["a_leg_b"].conj(), self.legs["a_leg_b"], self.chi_h_leg.conj()],
-        )
-        self.edge_l = yastn.rand(
-            self.config,
-            legs=[self.chi_v_leg, self.legs["a_leg_l"].conj(), self.legs["a_leg_l"], self.chi_v_leg.conj()],
-        )
-        self.edge_r = yastn.rand(
-            self.config,
-            legs=[self.chi_v_leg, self.legs["a_leg_r"].conj(), self.legs["a_leg_r"], self.chi_v_leg.conj()],
-        )
+        # Edge (T) tensors. An edge facing a site whose boundary leg is X carries
+        # legs [chi, X.conj(), X, chi.conj()] so both ket/bra layers contract.
+        def _edge(X, chi):
+            return yastn.rand(self.config, legs=[chi, X.conj(), X, chi.conj()])
 
+        lt, ll, lb, lr = (self.legs["a_leg_t"], self.legs["a_leg_l"],
+                          self.legs["a_leg_b"], self.legs["a_leg_r"])
+        # A-facing edges (boundary leg is A's own t/l/b/r leg).
+        self.edge_t = _edge(lt, self.chi_h_leg)
+        self.edge_b = _edge(lb, self.chi_h_leg)
+        self.edge_l = _edge(ll, self.chi_v_leg)
+        self.edge_r = _edge(lr, self.chi_v_leg)
+        # B-facing edges: B's boundary legs are the rotated-conjugated A legs.
+        self.edge_t_B = self.edge_b_B = self.edge_l_B = self.edge_r_B = None
+        if self.params['checkerboard']:
+            self.edge_t_B = _edge(lb.conj(), self.chi_h_leg)   # B.top    = conj(a_leg_b)
+            self.edge_b_B = _edge(lt.conj(), self.chi_h_leg)   # B.bottom = conj(a_leg_t)
+            self.edge_l_B = _edge(lr.conj(), self.chi_v_leg)   # B.left   = conj(a_leg_r)
+            self.edge_r_B = _edge(ll.conj(), self.chi_v_leg)   # B.right  = conj(a_leg_l)
+
+        # Corner (C) tensors are rank-2 chi x chi environment blocks; they only
+        # touch chi bonds (never site a-legs), so there is exactly one per patch
+        # corner and nothing sublattice-dependent to match.
         self.corners = {
             "tl": yastn.rand(self.config, legs=[self.chi_v_leg, self.chi_h_leg.conj()]),
             "tr": yastn.rand(self.config, legs=[self.chi_h_leg, self.chi_v_leg.conj()]),
@@ -247,31 +265,49 @@ class CtmBenchMeasureNconFermionic(CtmBenchContractionParent):
             "br": yastn.rand(self.config, legs=[self.chi_v_leg, self.chi_h_leg.conj()]),
         }
 
+    def _is_B(self, i, j):
+        return self.params['checkerboard'] and (i + j) % 2 == 1
+
+    def _site_ket_for(self, i, j):
+        return self.site_ket_B if self._is_B(i, j) else self.site_ket
+
     def _make_patch(self):
         Nx, Ny = self.params['dims']
-        tens = {(i, j): DoublePepsTensor(self.site_ket.copy(), self.site_ket.copy())
+        tens = {(i, j): DoublePepsTensor(self._site_ket_for(i, j).copy(),
+                                         self._site_ket_for(i, j).copy())
                 for i in range(Nx) for j in range(Ny)}
+        # Each boundary edge must match the sublattice of the site it borders:
+        # top col j -> (0, j); bottom col j -> (Nx-1, j); left row i -> (i, 0);
+        # right row i -> (i, Ny-1).
         edges = {
-            "t": {j: self.edge_t.copy() for j in range(Ny)},
-            "b": {j: self.edge_b.copy() for j in range(Ny)},
-            "l": {i: self.edge_l.copy() for i in range(Nx)},
-            "r": {i: self.edge_r.copy() for i in range(Nx)},
+            "t": {j: (self.edge_t_B if self._is_B(0, j) else self.edge_t).copy() for j in range(Ny)},
+            "b": {j: (self.edge_b_B if self._is_B(Nx - 1, j) else self.edge_b).copy() for j in range(Ny)},
+            "l": {i: (self.edge_l_B if self._is_B(i, 0) else self.edge_l).copy() for i in range(Nx)},
+            "r": {i: (self.edge_r_B if self._is_B(i, Ny - 1) else self.edge_r).copy() for i in range(Nx)},
         }
         corners = {k: v.copy() for k, v in self.corners.items()}
         return corners, edges, tens
 
     def _make_operator_pair(self):
-        op = yastn.eye(
-            self.config,
-            legs=[self.legs["a_leg_s"], self.legs["a_leg_s"].conj()],
-            isdiag=False,
-        )
-        return op, op
+        s_A = self.legs["a_leg_s"]
+        op_A = yastn.eye(self.config, legs=[s_A, s_A.conj()], isdiag=False)
+        if self.params['checkerboard']:
+            # B's physical space is the conjugate of A's (rotated-conjugated site),
+            # so its operator lives on the conjugated system leg.
+            s_B = s_A.conj()
+            op_B = yastn.eye(self.config, legs=[s_B, s_B.conj()], isdiag=False)
+        else:
+            op_B = op_A
+        return op_A, op_B
+
+    def _op_for_site(self, op_A, op_B, site):
+        return op_B if self._is_B(*site) else op_A
 
     def _insert_operators(self, tens):
-        cp_op, c_op = self._make_operator_pair()
+        op_A, op_B = self._make_operator_pair()
         site_l, site_r = self._normalized_sites()
-        site_ops = {site_l: cp_op, site_r: c_op}
+        site_ops = {site_l: self._op_for_site(op_A, op_B, site_l),
+                    site_r: self._op_for_site(op_A, op_B, site_r)}
         Nx, Ny = self.params['dims']
         axes_string_x = ['b3', 'k4', 'k1']
         axes_string_y = ['k2', 'k4', 'b0']
@@ -331,18 +367,13 @@ class CtmBenchMeasureNconFermionic(CtmBenchContractionParent):
             checkpoint_loop=self.params['checkpoint_loop'],
             devices=self.params['devices'],
             mp_workers_per_device=self.params['mp_workers_per_device'],
+            per_combo_path=self.params['per_combo_path'],
+            combo_path_kwargs=self.params['combo_path_kwargs'],
             swap=self.swap_pairs,
             who=self.__class__.__name__,
         )
-        if self.params['precontract_constants']:
-            # contract_with_unroll_compute_constants requires an explicit path.
-            if self.path is None:
-                self.path, _ = self.compute_contraction_path(*self.tn)
-            self.tensors["result"] = contract_with_unroll_compute_constants(
-                *self.tn, optimize=self.path, **kwargs)
-        else:
-            self.tensors["result"] = contract_with_unroll(
-                *self.tn, optimizer=self.params['optimizer'], **kwargs)
+        self.tensors["result"] = contract_with_unroll(
+            *self.tn, optimizer=self.params['optimizer'], **kwargs)
         self.result = self.tensors["result"].to_number()
 
     def print_header(self, file=None):
