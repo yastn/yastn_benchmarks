@@ -32,6 +32,7 @@ class CtmBenchContractionParent(CtmBenchParent):
                        'checkpoint_loop': False,
                        'unroll': None,
                        'optimizer': "default",
+                       'optimizer_kwargs': {},
                        'devices': None,
                        'mp_workers_per_device': 0,
                        'per_combo_path': False,
@@ -132,6 +133,7 @@ class CtmBenchContractionParent(CtmBenchParent):
         This method is kept as a thin wrapper for diagnostic prints.
         """
         kwargs.setdefault('optimizer', self.params['optimizer'])
+        kwargs.setdefault('optimizer_kwargs', self.params['optimizer_kwargs'])
         path, path_info = yastn.tensor.oe_blocksparse.get_contraction_path(*tn,
                             unroll=self.params['unroll'], names=names,
                             who=self.__class__.__name__, **kwargs)
@@ -174,6 +176,7 @@ class CtmBenchContractionParent(CtmBenchParent):
         self.tensors["result"] = yastn.tensor.oe_blocksparse.contract_with_unroll(
                 *self.tn, unroll=self.params['unroll'],
                 optimizer=self.params['optimizer'],
+                optimizer_kwargs=self.params['optimizer_kwargs'],
                 names=self.tensor_names,
                 checkpoint_loop=self.params['checkpoint_loop'],
                 devices=self.params['devices'],

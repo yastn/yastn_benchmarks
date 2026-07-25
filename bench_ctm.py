@@ -101,6 +101,7 @@ def fname_output(bench, fname, args):
     stem += f"_mode={compute_mode_tag(args.devices, args.mp_workers_per_device)}"
     return path / f"{stem}.out"
 
+
 def run_bench(model, args):
     """
     Run a single benchmark and output results to file or to stdout
@@ -156,9 +157,11 @@ def run_bench(model, args):
                 block_stats.reset()
                 try:
                     t = timeit.timeit(stmt=f'bench.{task}()', number=1, globals=locals())
-                except AssertionError:
-                    print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
-                    return None
+                except Exception as e:
+                    raise e
+                # except AssertionError:
+                #     print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
+                #     return None
                 mb, where = block_stats.report()
                 max_blocks_per_run.append(mb)
                 times.append(t)
@@ -201,7 +204,7 @@ if __name__ == "__main__":
               "CtmBenchMeasureNconFermionic": None,}
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch', 'torch_cpp'])
+    parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch', 'torch_cutensor'])
     parser.add_argument("-dtype", type=str, default='float64', choices=['float32', 'float64', 'complex64', 'complex128'])
     parser.add_argument("-device", type=str, default='cpu', help="cpu, cuda, cuda:<device_id>, etc.")
     parser.add_argument("-devices", type=str, default=None,

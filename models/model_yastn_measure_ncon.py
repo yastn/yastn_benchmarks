@@ -363,6 +363,8 @@ class CtmBenchMeasureNconFermionic(CtmBenchContractionParent):
     @nvtx
     def contract(self):
         kwargs = dict(
+            optimizer=self.params['optimizer'], 
+            optimizer_kwargs=self.params['optimizer_kwargs'],
             unroll=self.params['unroll'],
             checkpoint_loop=self.params['checkpoint_loop'],
             devices=self.params['devices'],
@@ -372,8 +374,7 @@ class CtmBenchMeasureNconFermionic(CtmBenchContractionParent):
             swap=self.swap_pairs,
             who=self.__class__.__name__,
         )
-        self.tensors["result"] = contract_with_unroll(
-            *self.tn, optimizer=self.params['optimizer'], **kwargs)
+        self.tensors["result"] = contract_with_unroll(*self.tn, **kwargs)
         self.result = self.tensors["result"].to_number()
 
     def print_header(self, file=None):
