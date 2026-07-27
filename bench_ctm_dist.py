@@ -50,6 +50,7 @@ import ast
 import contextlib
 import gc
 import glob
+import logging
 import os
 from pathlib import Path
 import sys
@@ -123,6 +124,39 @@ def teardown_distributed(initialised):
     if dist.is_available() and dist.is_initialized():
         dist.barrier()
         dist.destroy_process_group()
+
+
+def configure_logging(rank, world, level_name):
+    """Route yastn's diagnostic logging (e.g. the per-rank combo/LPT-load line
+    from ``yastn.tensor._oe_blocksparse_dist``) to **stdout**.
+
+    Those records are emitted at INFO/DEBUG on the ``yastn.tensor`` package
+    logger; with no handler and the default WARNING root level they are dropped.
+    We attach a ``StreamHandler(sys.stdout)`` (the default is ``sys.stderr`` — it
+    would otherwise land in ``stderr.log`` under ``torchrun -r 3``), so the
+    diagnostics show up in each rank's ``stdout.log``. A ``[r{rank}]`` prefix
+    keeps them attributable if streams are ever merged.
+
+    ``level_name='NONE'`` (or ``'OFF'``) disables the diagnostics.
+    """
+    logger = logging.getLogger("yastn.tensor")
+    # Remove any handler we added on a previous call (idempotent across fnames).
+    for h in list(logger.handlers):
+        if getattr(h, "_bench_ctm_dist", False):
+            logger.removeHandler(h)
+    if str(level_name).upper() in ("NONE", "OFF"):
+        return
+    level = getattr(logging, str(level_name).upper(), logging.INFO)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(level)
+    handler.setFormatter(logging.Formatter(
+        f"[r{rank}/{world}] %(name)s %(levelname)s: %(message)s"))
+    handler._bench_ctm_dist = True  # tag so we can find/replace it later
+    logger.addHandler(handler)
+    logger.setLevel(level)
+    # Don't propagate to the root logger to avoid duplicate lines if something
+    # (e.g. torch) has also configured the root handler.
+    logger.propagate = False
 
 
 def fname_output_dist(bench, fname, args, rank, world):
@@ -267,6 +301,10 @@ def build_parser():
     )
     parser.add_argument("-num_threads", type=str, default='none',
                         help="Set number of threads for CPU backends; 'none' keeps default settings.")
+    parser.add_argument("-log_level", type=str, default='INFO',
+                        help="Level for yastn's diagnostic logging routed to stdout (per-rank "
+                             "combo/LPT-load line from _oe_blocksparse_dist). One of DEBUG, INFO, "
+                             "WARNING, ...; 'NONE' disables it. Default INFO.")
     return parser
 
 
@@ -286,6 +324,10 @@ def main():
     # Initialise the process group (and pick this rank's device) before the
     # models import builds any tensors.
     rank, world, device, initialised = init_distributed(args.device)
+
+    # Surface yastn's diagnostic logging (e.g. the dist per-rank combo/LPT-load
+    # line) on stdout so it is captured in each rank's stdout.log (torchrun -r 3).
+    configure_logging(rank, world, args.log_level)
 
     # import models here to set num_threads before importing backends
     import models
