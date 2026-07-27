@@ -36,7 +36,8 @@ class CtmBenchContractionParent(CtmBenchParent):
                        'devices': None,
                        'mp_workers_per_device': 0,
                        'per_combo_path': False,
-                       'combo_path_kwargs': None}  # default params
+                       'combo_path_kwargs': None,
+                       'distributed': False}  # default params
         for k in self.params:
             if k in kwargs:
                 self.params[k] = kwargs[k]
@@ -183,6 +184,7 @@ class CtmBenchContractionParent(CtmBenchParent):
                 mp_workers_per_device=self.params['mp_workers_per_device'],
                 per_combo_path=self.params['per_combo_path'],
                 combo_path_kwargs=self.params['combo_path_kwargs'],
+                distributed=self.params['distributed'],
                 who=self.__class__.__name__
             )
         result= float(self.tensors["result"]._data[0]) # force synchronization

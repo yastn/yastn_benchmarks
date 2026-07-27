@@ -371,6 +371,7 @@ class CtmBenchMeasureNconFermionic(CtmBenchContractionParent):
             mp_workers_per_device=self.params['mp_workers_per_device'],
             per_combo_path=self.params['per_combo_path'],
             combo_path_kwargs=self.params['combo_path_kwargs'],
+            distributed=self.params['distributed'],
             swap=self.swap_pairs,
             who=self.__class__.__name__,
         )
