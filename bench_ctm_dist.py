@@ -83,8 +83,12 @@ def init_distributed(base_device):
     Mirrors the launch contract in yastn-dev's
     ``tests/tensor/test_oe_blocksparse_dist.py`` (``_run_spmd``): pick
     ``nccl``/CUDA when each rank can own a distinct GPU, else ``gloo``/CPU.
+    Works for single- and multi-node ``torchrun`` launches — the CUDA decision
+    compares each node's local GPU count against its *local* world size
+    (``LOCAL_WORLD_SIZE``), not the global world, so N nodes × G GPUs runs on
+    NCCL as long as every node has G GPUs for its G local ranks.
 
-    Returns ``(rank, world_size, device, initialised)``. If not launched under
+    Returns ``(rank, world_size, device, initialised)``. If not launched via
     ``torchrun`` (no ``WORLD_SIZE`` in env) this is a no-op returning
     ``(0, 1, base_device, False)`` — a safe serial fallback.
     """
@@ -97,10 +101,13 @@ def init_distributed(base_device):
     import torch.distributed as dist
 
     world = int(os.environ["WORLD_SIZE"])
+    # Per-node worker count (torchrun sets LOCAL_WORLD_SIZE). The local-GPU-count
+    # decision must compare against this
+    local_world = int(os.environ.get("LOCAL_WORLD_SIZE", world))
     want_cpu = (str(base_device) == "cpu"
                 or os.environ.get("YASTN_DIST_TEST_CPU", "0") == "1")
     use_cuda = (not want_cpu and torch.cuda.is_available()
-                and torch.cuda.device_count() >= world)
+                and torch.cuda.device_count() >= local_world)
     backend = "nccl" if use_cuda else "gloo"
     dist.init_process_group(backend=backend)
     rank = dist.get_rank()
@@ -113,7 +120,8 @@ def init_distributed(base_device):
         device = "cpu"
     if rank == 0:
         print(f"[bench_ctm_dist] distributed init: backend={backend}; "
-              f"world={world}; device(rank0)={device}", flush=True)
+              f"world={world}; local_world={local_world}; device(rank0)={device}",
+              flush=True)
     return rank, world, device, True
 
 
