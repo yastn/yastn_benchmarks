@@ -84,7 +84,7 @@ if [[ "${NSYS:-0}" == "1" ]]; then
     --sample=none)                   # drop CPU sampling → smaller reports
 fi
 
-"${PROFILE[@]}" python3 -m pdb bench_ctm.py \
+"${PROFILE[@]}" python3 bench_ctm.py \
        -backend "$BACKEND" \
        -tensordot_policy "$TENSORDOT_POLICY" \
        -model "$MODEL" \

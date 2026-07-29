@@ -26,7 +26,7 @@ class CtmBenchContractionParent(CtmBenchParent):
 
         """
         super().__init__(fname, config)
-        self.bench_pipeline = ["contract",]
+        self.bench_pipeline = ["contract", "count_flops"]  # default pipeline steps; subclasses can override
         self.params = {'seed': 0,
                        'dense': False,
                        'checkpoint_loop': False,
@@ -164,8 +164,27 @@ class CtmBenchContractionParent(CtmBenchParent):
         print("", file=file)
         # contract_with_unroll caches the path internally; fetching it here is
         # free if a contract step already ran, otherwise computes it on demand.
-        path, path_info = self.compute_contraction_path(*self.tn, names=self.tensor_names)
+        _, path_info = self.compute_contraction_path(*self.tn, names=self.tensor_names)
         print(path_info, file=file)
+
+        print("", file=file)
+        for k, v in self.tensors.items():
+            print(f"{k} tensor properties:", file=file)
+            v.print_properties(file=file)
+
+    @nvtx
+    def count_flops(self):
+        r"""Count the number of FLOPs for the contraction.
+
+        This is a thin wrapper around ``contract_with_unroll`` that returns the
+        FLOP count instead of performing the contraction. 
+        """
+        # contract_with_unroll caches the path internally; fetching it here is
+        # free if a contract step already ran, otherwise computes it on demand.
+        path, _ = self.compute_contraction_path(*self.tn, names=self.tensor_names)
+        # 
+        # Computing the block-sparse FLOPS is done only at meta-data level, under no_fusion policy,
+        # which can be costly for large networks and/or many blocks.
         with yastn.trace_flops() as flops:
             _= yastn.tensor.oe_blocksparse.contract_with_unroll(
                 *self.tn, 
@@ -173,13 +192,8 @@ class CtmBenchContractionParent(CtmBenchParent):
                 names=self.tensor_names,
                 who=self.__class__.__name__
             )
-        print(f"Contraction path block-sparse FLOPS: {flops}", file=file)
-        
+        self.result = flops
 
-        print("", file=file)
-        for k, v in self.tensors.items():
-            print(f"{k} tensor properties:", file=file)
-            v.print_properties(file=file)
 
     @nvtx
     def contract(self):

@@ -253,6 +253,9 @@ def run_bench_dist(model, args, fname, rank, world, device):
                 if hasattr(bench, 'tensors') and 'result' in bench.tensors:
                     result_val = float(bench.tensors['result']._data[0])
                     del bench.tensors['result']
+                if hasattr(bench, 'result') and bench.result is not None:
+                    result_val = bench.result
+                    del bench.result
                 results.append(result_val)
                 print(f"  run {r+1}/{args.repeat}: {t:.4f}  max_blocks={mb} ({where})", file=f, flush=True)
             print(*(f"{t:.4f}" for t in times), file=f, flush=True)
@@ -312,7 +315,7 @@ def build_parser():
         "-pipeline",
         nargs="*",
         choices=["all", "contract", "precompute_A_mat", "enlarged_corner",
-                 "fuse_enlarged_corner", "svd_enlarged_corner", "ctmrg_update"],
+                 "fuse_enlarged_corner", "svd_enlarged_corner", "ctmrg_update", "count_flops"],
         default=["all"],
         help="Pipeline steps to run; provide multiple values separated by space. Default: all.",
     )
