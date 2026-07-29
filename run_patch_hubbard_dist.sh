@@ -22,13 +22,14 @@ set -euo pipefail
 #   NNODES=1 NPROC_PER_NODE=2 DEVICE=cpu ./run_patch_hubbard_dist.sh
 
 # ---- benchmark configuration ----
-FNAME="Hubbard_U1xU1xZ2_d=4x4_D=12_chi=60"
+# FNAME="Hubbard_U1xU1xZ2_d=4x4_D=12_chi=60"
+FNAME="Heisenberg_U1_d=2_D=4_chi=30"
 # ---- fermionic statistics ----
 # Required for the Hubbard U1xU1xZ2 tensors (parity on the Z2 channel).
 # MUST be blank for bosonic inputs or set to False for every symmetry.
-FERMIONIC="(False,False,True)"
+# FERMIONIC="(False,False,True)"
 FERMIONIC_FLAG=""
-if [[ -n "$FERMIONIC" ]]; then
+if [[ -n "${FERMIONIC:-}" ]]; then
   FERMIONIC_FLAG="-fermionic $FERMIONIC"
 fi
 MODEL="CtmBenchMeasureNconFermionic"

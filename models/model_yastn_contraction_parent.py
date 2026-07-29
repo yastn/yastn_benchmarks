@@ -164,8 +164,17 @@ class CtmBenchContractionParent(CtmBenchParent):
         print("", file=file)
         # contract_with_unroll caches the path internally; fetching it here is
         # free if a contract step already ran, otherwise computes it on demand.
-        _, path_info = self.compute_contraction_path(*self.tn, names=self.tensor_names)
+        path, path_info = self.compute_contraction_path(*self.tn, names=self.tensor_names)
         print(path_info, file=file)
+        with yastn.trace_flops() as flops:
+            _= yastn.tensor.oe_blocksparse.contract_with_unroll(
+                *self.tn, 
+                optimize=path,
+                names=self.tensor_names,
+                who=self.__class__.__name__
+            )
+        print(f"Contraction path block-sparse FLOPS: {flops}", file=file)
+        
 
         print("", file=file)
         for k, v in self.tensors.items():

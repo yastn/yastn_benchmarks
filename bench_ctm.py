@@ -208,7 +208,8 @@ if __name__ == "__main__":
     parser.add_argument("-dtype", type=str, default='float64', choices=['float32', 'float64', 'complex64', 'complex128'])
     parser.add_argument("-device", type=str, default='cpu', help="cpu, cuda, cuda:<device_id>, etc.")
     parser.add_argument("-devices", type=str, default=None,
-                        help="Optional device list for multi-device unrolled contraction, e.g. \"['cuda:0', 'cuda:1']\" or \"cuda:0,cuda:1\".")
+                        help="Optional device list for multi-device unrolled contraction, e.g. \"['cuda:0', 'cuda:1']\" or \"cuda:0,cuda:1\"."
+                             " If provided, overrides -device and sets default_device to the first device in the list.")
     parser.add_argument("-mp_workers_per_device", type=int, default=0,
                         help="If >0, dispatch sliced-unroll combos via the multiprocessing path "
                              "(_oe_blocksparse_mp) with this many worker processes per device. "
@@ -235,6 +236,8 @@ if __name__ == "__main__":
     parser.add_argument("-num_threads", type=str, default='none', help="Set number of threads for CPU backends; Use 'none' to keep default settings.")
     args = parser.parse_args()
 
+    if args.devices is not None:
+        args.device= parse_devices_arg(args.devices)[0]  # default_device is taken from first device in the list
     if args.num_threads.lower() != 'none':
         os.environ["OMP_NUM_THREADS"] = args.num_threads
         os.environ["OPENBLAS_NUM_THREADS"] = args.num_threads
