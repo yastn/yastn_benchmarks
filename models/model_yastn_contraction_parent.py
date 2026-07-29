@@ -32,10 +32,19 @@ class CtmBenchContractionParent(CtmBenchParent):
                        'checkpoint_loop': False,
                        'unroll': None,
                        'optimizer': "default",
-                       'devices': None}  # default params
+                       'optimizer_kwargs': {},
+                       'devices': None,
+                       'mp_workers_per_device': 0,
+                       'per_combo_path': False,
+                       'combo_path_kwargs': None,
+                       'distributed': False}  # default params
         for k in self.params:
             if k in kwargs:
                 self.params[k] = kwargs[k]
+
+        # Subclasses populate these after building the network.
+        self.tn = None
+        self.tensor_names = None
 
         # self.input.items() # contains user supplied legs
         self.legs = {k: yastn.Leg(self.config, s=v['signature'], t=v['charges'], D=v['dimensions'])
@@ -44,6 +53,7 @@ class CtmBenchContractionParent(CtmBenchParent):
             self.config= self.config._replace(sym=yastn.sym.sym_none)
             for k in self.legs:
                 self.legs[k]= yastn.Leg(s=self.legs[k].s, t=(), D=(sum(self.legs[k].D),))
+
 
 
     def make_tensors_simple(self, tensor_ids, inputs, legs_dict, **kwargs):
@@ -117,6 +127,14 @@ class CtmBenchContractionParent(CtmBenchParent):
 
 
     def compute_contraction_path(self, *tn, names=None, **kwargs):
+        r"""Optional helper that exposes the optimized path / PathInfo.
+
+        ``contract_with_unroll`` finds and caches the path internally on first
+        call, so eager precomputation is no longer required for benchmarking.
+        This method is kept as a thin wrapper for diagnostic prints.
+        """
+        kwargs.setdefault('optimizer', self.params['optimizer'])
+        kwargs.setdefault('optimizer_kwargs', self.params['optimizer_kwargs'])
         path, path_info = yastn.tensor.oe_blocksparse.get_contraction_path(*tn,
                             unroll=self.params['unroll'], names=names,
                             who=self.__class__.__name__, **kwargs)
@@ -144,7 +162,10 @@ class CtmBenchContractionParent(CtmBenchParent):
                 print("cutensor cache stats: "+str(list(self.config.backend.cutensor_cache_stats().values())), file=file)
 
         print("", file=file)
-        print(self.path_info, file=file)
+        # contract_with_unroll caches the path internally; fetching it here is
+        # free if a contract step already ran, otherwise computes it on demand.
+        _, path_info = self.compute_contraction_path(*self.tn, names=self.tensor_names)
+        print(path_info, file=file)
 
         print("", file=file)
         for k, v in self.tensors.items():
@@ -154,9 +175,16 @@ class CtmBenchContractionParent(CtmBenchParent):
     @nvtx
     def contract(self):
         self.tensors["result"] = yastn.tensor.oe_blocksparse.contract_with_unroll(
-                *self.tn, optimize=self.path, unroll=self.params['unroll'],
+                *self.tn, unroll=self.params['unroll'],
+                optimizer=self.params['optimizer'],
+                optimizer_kwargs=self.params['optimizer_kwargs'],
+                names=self.tensor_names,
                 checkpoint_loop=self.params['checkpoint_loop'],
                 devices=self.params['devices'],
+                mp_workers_per_device=self.params['mp_workers_per_device'],
+                per_combo_path=self.params['per_combo_path'],
+                combo_path_kwargs=self.params['combo_path_kwargs'],
+                distributed=self.params['distributed'],
                 who=self.__class__.__name__
             )
         result= float(self.tensors["result"]._data[0]) # force synchronization

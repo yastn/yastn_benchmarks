@@ -11,8 +11,8 @@ description = "Benchmarks for YASTN tensor network library"
 authors = [
     { name="The YASTN Authors" }
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
-    "yastn",
+    "yastn @ git+https://github.com/yastn/yastn.git@7f2d03ec338455dffd25c210d2d261c1cb764b66",
     "nvtx"
 ]

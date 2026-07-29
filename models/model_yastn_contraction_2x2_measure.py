@@ -96,7 +96,7 @@ class CtmBenchContraction2x2Measure(CtmBenchContractionParent):
             _I_out)
 
         tensor_ids, inputs, output, legs_dict = self.build_network(self.legs)
-        self.tensors = self.make_tensors(tensor_ids, inputs, legs_dict)
+        self.tensors = self.make_tensors_simple(tensor_ids, inputs, legs_dict)
         # No contraction path is computed: the order is fixed (measure_2x2).
 
     def build_network(self, legs, open_idx=[]):

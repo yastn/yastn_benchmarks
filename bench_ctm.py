@@ -23,6 +23,9 @@ import sys
 import timeit
 import tracemalloc
 
+import block_stats
+block_stats.install()
+
 def readable_size(size):
     units = ('KB', 'MB', 'GB', 'TB')
     size_list = [f'{int(size):,} B'] + [f'{int(size) / 1024 ** (i + 1):,.2f} {u}' for i, u in enumerate(units)]
@@ -65,6 +68,18 @@ def format_devices_suffix(value):
     return "devices=" + "_".join(devices)
 
 
+def compute_mode_tag(devices_arg, mp_workers_per_device):
+    """Dispatch mode label used in output filenames and the run banner.
+
+    Only two modes remain: ``mp{N}`` (multiprocess workers via
+    ``_oe_blocksparse_mp``) and ``serial``.  The in-process multi-device
+    threaded dispatch is no longer supported.
+    """
+    if mp_workers_per_device > 0:
+        return f"mp{mp_workers_per_device}"
+    return "serial"
+
+
 def fname_output(bench, fname, args):
     if args.to_file is False:
         return None
@@ -83,7 +98,9 @@ def fname_output(bench, fname, args):
     devices_suffix = format_devices_suffix(args.devices)
     if devices_suffix is not None:
         stem += f"_{devices_suffix}"
+    stem += f"_mode={compute_mode_tag(args.devices, args.mp_workers_per_device)}"
     return path / f"{stem}.out"
+
 
 def run_bench(model, args):
     """
@@ -98,6 +115,8 @@ def run_bench(model, args):
     kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in expr.body.keywords}
     if args.devices is not None:
         kwargs["devices"] = parse_devices_arg(args.devices)
+    if args.mp_workers_per_device > 0:
+        kwargs["mp_workers_per_device"] = args.mp_workers_per_device
     #
     bench = model(fname, config, **kwargs)
     #
@@ -121,29 +140,42 @@ def run_bench(model, args):
             print(f"fermionic = {args.fermionic}", file=f, flush=True)
         if args.devices is not None:
             print(f"devices = {args.devices}", file=f, flush=True)
+        dispatch_mode = compute_mode_tag(args.devices, args.mp_workers_per_device)
+        print(f"dispatch = {dispatch_mode}; mp_workers_per_device = {args.mp_workers_per_device}",
+              file=f, flush=True)
         print(f"Selected pipeline tasks to run: {tasks}", file=f, flush=True)
         for task in tasks:
             print(task + "; times [seconds]", file=f, flush=True)
             times = []
             results = []
+            max_blocks_per_run = []
             for r in range(args.repeat):
                 gc.collect()
-                if args.backend == 'torch' and 'cuda' in args.device:
+                if 'torch' in args.backend and 'cuda' in args.device:
                     import torch
                     torch.cuda.empty_cache()
+                block_stats.reset()
                 try:
                     t = timeit.timeit(stmt=f'bench.{task}()', number=1, globals=locals())
-                except AssertionError:
-                    print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
-                    return None
+                except Exception as e:
+                    raise e
+                # except AssertionError:
+                #     print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
+                #     return None
+                mb, where = block_stats.report()
+                max_blocks_per_run.append(mb)
                 times.append(t)
                 result_val = None
                 if hasattr(bench, 'tensors') and 'result' in bench.tensors:
                     result_val = float(bench.tensors['result']._data[0])
                     del bench.tensors['result']
                 results.append(result_val)
-                print(f"  run {r+1}/{args.repeat}: {t:.4f}", file=f, flush=True)
+                print(f"  run {r+1}/{args.repeat}: {t:.4f}  max_blocks={mb} ({where})", file=f, flush=True)
             print(*(f"{t:.4f}" for t in times), file=f, flush=True)
+            if max_blocks_per_run:
+                overall_max = max(max_blocks_per_run)
+                print(f"max_blocks per run: {max_blocks_per_run}; overall_max={overall_max}",
+                      file=f, flush=True)
             if any(r is not None for r in results):
                 print("results:", *(f"{r}" for r in results), file=f, flush=True)
             if args.memory_profile:
@@ -172,11 +204,15 @@ if __name__ == "__main__":
               "CtmBenchMeasureNconFermionic": None,}
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch', 'torch_cpp'])
+    parser.add_argument("-backend", type=str, default='np', choices=['np', 'torch', 'torch_cutensor'])
     parser.add_argument("-dtype", type=str, default='float64', choices=['float32', 'float64', 'complex64', 'complex128'])
     parser.add_argument("-device", type=str, default='cpu', help="cpu, cuda, cuda:<device_id>, etc.")
     parser.add_argument("-devices", type=str, default=None,
                         help="Optional device list for multi-device unrolled contraction, e.g. \"['cuda:0', 'cuda:1']\" or \"cuda:0,cuda:1\".")
+    parser.add_argument("-mp_workers_per_device", type=int, default=0,
+                        help="If >0, dispatch sliced-unroll combos via the multiprocessing path "
+                             "(_oe_blocksparse_mp) with this many worker processes per device. "
+                             "Default 0 runs serially in-process.")
     parser.add_argument("-tensordot_policy", type=str, default='no_fusion', choices=['fuse_to_matrix', 'fuse_contracted', 'no_fusion'])
     parser.add_argument("-fermionic", type=str, default=None,
                         help="Optional Python literal passed to yastn.make_config as fermionic, e.g. 'True' or '(False, False, True)'.")

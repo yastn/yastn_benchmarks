@@ -61,9 +61,7 @@ class CtmBenchContractionLxLy(CtmBenchContractionParent):
 
         self.tensors= self.make_tensors_simple(tensor_ids, inputs, legs_dict)
         self.tn= sum(zip([self.tensors[t_id] for t_id in tensor_ids], inputs) , ()) + (tuple(output) if len(output)>0 else ((),))
-        
-        self.path, self.path_info= self.compute_contraction_path(*self.tn, names=tuple(tensor_ids), 
-                                        optimizer=self.params['optimizer'])
+        self.tensor_names = tuple(tensor_ids)
 
 
     def build_network(self, legs, **kwargs):
@@ -106,11 +104,12 @@ class CtmBenchContractionLxLy(CtmBenchContractionParent):
 
     def print_header(self, file=None):
         print(f"Contract Lx x Ly patch with BC {self.params['bc']}", file=file)
-        
+
         print("", file=file)
         print(self._gen_network_spec(), file=file)
         print("", file=file)
-        print(self.path_info, file=file)
+        _, path_info = self.compute_contraction_path(*self.tn, names=self.tensor_names)
+        print(path_info, file=file)
         print("", file=file)
 
 
@@ -140,5 +139,6 @@ class CtmBenchContractionLxLy(CtmBenchContractionParent):
     @nvtx
     def contract(self):
         self.tensors["result"] = yastn.tensor.oe_blocksparse.contract_with_unroll(
-                *self.tn, optimize=self.path, who=self.__class__.__name__
+                *self.tn, optimizer=self.params['optimizer'], names=self.tensor_names,
+                who=self.__class__.__name__
             )
