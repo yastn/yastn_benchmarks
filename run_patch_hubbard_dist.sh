@@ -35,6 +35,13 @@ fi
 MODEL="CtmBenchMeasureNconFermionic"
 BACKEND="torch"
 TENSORDOT_POLICY="no_fusion"
+# yastn config lazy_threshold; empty => yastn backend-default (0 for cuTensor, 0.5 otherwise).
+# Override per-run, e.g. LAZY_THRESHOLD=0.3 ./run_patch_hubbard_dist.sh
+LAZY_THRESHOLD="${LAZY_THRESHOLD:-}"
+LAZY_THRESHOLD_FLAG=""
+if [[ -n "$LAZY_THRESHOLD" ]]; then
+  LAZY_THRESHOLD_FLAG="-lazy_threshold $LAZY_THRESHOLD"
+fi
 DEVICE="${DEVICE:-cuda}"   # base device; each rank uses cuda:LOCAL_RANK (nccl) or cpu (gloo)
 REPEAT=2                   # Number of benchmark repeats (for timing statistics)
 DTYPE=float64
@@ -150,6 +157,7 @@ fi
        -model "$MODEL" \
        -repeat "$REPEAT" \
        $FERMIONIC_FLAG \
+       $LAZY_THRESHOLD_FLAG \
        -params "$PARAMS" \
        -fname "$FNAME" \
        -dtype "$DTYPE" -log_level INFO -stdout

@@ -21,6 +21,13 @@ fi
 MODEL="CtmBenchMeasureNconFermionic"
 BACKEND="torch_cutensor"
 TENSORDOT_POLICY="no_fusion"
+# yastn config lazy_threshold; empty => yastn backend-default (0 for cuTensor, 0.5 otherwise).
+# Override per-run, e.g. LAZY_THRESHOLD=0.3 ./run_patch_hubbard_mp.sh
+LAZY_THRESHOLD="${LAZY_THRESHOLD:-}"
+LAZY_THRESHOLD_FLAG=""
+if [[ -n "$LAZY_THRESHOLD" ]]; then
+  LAZY_THRESHOLD_FLAG="-lazy_threshold $LAZY_THRESHOLD"
+fi
 REPEAT=2                   # Number of benchmark repeats (for timing statistics)
 DTYPE=float64
 # NOTE: distributed=True only engages when 'unroll' is a dict — keep it in PARAMS.
@@ -83,6 +90,7 @@ fi
        -model "$MODEL" \
        -repeat "$REPEAT" \
        $FERMIONIC_FLAG \
+       $LAZY_THRESHOLD_FLAG \
        $DEVICES_FLAG \
        -mp_workers_per_device $WORKERS_PER_DEVICE \
        -params "$PARAMS" \

@@ -91,7 +91,10 @@ def fname_output(bench, fname, args):
                    if k not in _skip_path_keys and v is not None and v is not False and v != 0}
     if path_params:
         ss += '_'.join(f"{k}={v}" for k, v in sorted(path_params.items())) + '/'
-    ss += f"{args.dtype}/num_threads={args.num_threads}/policy={args.tensordot_policy}/lru_cache={args.lru_cache}/{args.backend}/{device}"
+    ss += f"{args.dtype}/num_threads={args.num_threads}/policy={args.tensordot_policy}/lru_cache={args.lru_cache}"
+    if args.lazy_threshold is not None:
+        ss += f"/lazy_threshold={args.lazy_threshold}"
+    ss += f"/{args.backend}/{device}"
     path = Path(ss)
     path.mkdir(parents=True, exist_ok=True)
     stem = fname.stem
@@ -107,7 +110,8 @@ def run_bench(model, args):
     Run a single benchmark and output results to file or to stdout
     """
     config = {"backend": args.backend, "default_device": args.device, "default_dtype": args.dtype,
-              "lru_cache": args.lru_cache, "tensordot_policy": args.tensordot_policy}
+              "lru_cache": args.lru_cache, "tensordot_policy": args.tensordot_policy,
+              "lazy_threshold": args.lazy_threshold}
     if args.fermionic is not None:
         config["fermionic"] = ast.literal_eval(args.fermionic)
     #
@@ -136,6 +140,7 @@ def run_bench(model, args):
         print(f"Model = {type(bench).__name__}; fname = {fname.name}", file=f, flush=True)
         print(f"backend = {args.backend}; device = {args.device}; dtype = {args.dtype}", file=f, flush=True)
         print(f"num_threads = {args.num_threads}; tensordot_policy = {args.tensordot_policy}; lru_cache = {args.lru_cache}", file=f, flush=True)
+        print(f"lazy_threshold = {config['lazy_threshold']}", file=f, flush=True)
         if args.fermionic is not None:
             print(f"fermionic = {args.fermionic}", file=f, flush=True)
         if args.devices is not None:
@@ -215,6 +220,10 @@ if __name__ == "__main__":
                              "(_oe_blocksparse_mp) with this many worker processes per device. "
                              "Default 0 runs serially in-process.")
     parser.add_argument("-tensordot_policy", type=str, default='no_fusion', choices=['fuse_to_matrix', 'fuse_contracted', 'no_fusion'])
+    parser.add_argument("-lazy_threshold", type=float, default=None,
+                        help="yastn config lazy_threshold: fraction retained/allowed blocks above "
+                             "which blocks are initialized lazily. Omit for yastn's backend-dependent "
+                             "default (0 for cuTensor, 0.5 otherwise).")
     parser.add_argument("-fermionic", type=str, default=None,
                         help="Optional Python literal passed to yastn.make_config as fermionic, e.g. 'True' or '(False, False, True)'.")
     parser.add_argument("-no_lru_cache", dest='lru_cache', action='store_false', help="Yastn is using lru_cache to back up algebra of symmetries. Use this option to switch it off.")
