@@ -239,6 +239,9 @@ def run_bench_dist(model, args, fname, rank, world, device):
             times = []
             results = []
             max_blocks_per_run = []
+            max_block_per_run = []
+            f2m_blocks_per_run = []
+            f2m_block_per_run = []
             for r in range(args.repeat):
                 gc.collect()
                 if 'torch' in args.backend and 'cuda' in device:
@@ -246,8 +249,11 @@ def run_bench_dist(model, args, fname, rank, world, device):
                     torch.cuda.empty_cache()
                 block_stats.reset()
                 t = timeit.timeit(stmt=f'bench.{task}()', number=1, globals=locals())
-                mb, where = block_stats.report()
-                max_blocks_per_run.append(mb)
+                stats = block_stats.report()
+                max_blocks_per_run.append(stats.max_blocks)
+                max_block_per_run.append(stats.max_block)
+                f2m_blocks_per_run.append(stats.f2m_blocks)
+                f2m_block_per_run.append(stats.f2m_block)
                 times.append(t)
                 result_val = None
                 if hasattr(bench, 'tensors') and 'result' in bench.tensors:
@@ -257,11 +263,24 @@ def run_bench_dist(model, args, fname, rank, world, device):
                     result_val = bench.result
                     del bench.result
                 results.append(result_val)
-                print(f"  run {r+1}/{args.repeat}: {t:.4f}  max_blocks={mb} ({where})", file=f, flush=True)
+                # f2m numbers only exist on the fuse_to_matrix path; keep them out
+                # of the line entirely otherwise, so other policies read as before.
+                f2m_str = f" f2m_blocks={stats.f2m_blocks} f2m_block={stats.f2m_block}" \
+                          if stats.f2m_blocks else ""
+                print(f"  run {r+1}/{args.repeat}: {t:.4f}  max_blocks={stats.max_blocks} ({stats.where_blocks})"
+                      f" max_block={stats.max_block} ({stats.where_block}){f2m_str}", file=f, flush=True)
             print(*(f"{t:.4f}" for t in times), file=f, flush=True)
             if max_blocks_per_run:
                 overall_max = max(max_blocks_per_run)
                 print(f"max_blocks per run: {max_blocks_per_run}; overall_max={overall_max}",
+                      file=f, flush=True)
+            if max_block_per_run:
+                print(f"max_block per run: {max_block_per_run}; overall_max={max(max_block_per_run)}",
+                      file=f, flush=True)
+            if any(f2m_blocks_per_run):
+                print(f"f2m_blocks per run: {f2m_blocks_per_run}; overall_max={max(f2m_blocks_per_run)}",
+                      file=f, flush=True)
+                print(f"f2m_block per run: {f2m_block_per_run}; overall_max={max(f2m_block_per_run)}",
                       file=f, flush=True)
             if any(r is not None for r in results):
                 print("results:", *(f"{r}" for r in results), file=f, flush=True)
