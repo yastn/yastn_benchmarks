@@ -154,6 +154,7 @@ def run_bench(model, args):
             times = []
             results = []
             max_blocks_per_run = []
+            max_block_per_run = []
             for r in range(args.repeat):
                 gc.collect()
                 if 'torch' in args.backend and 'cuda' in args.device:
@@ -167,8 +168,9 @@ def run_bench(model, args):
                 # except AssertionError:
                 #     print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
                 #     return None
-                mb, where = block_stats.report()
-                max_blocks_per_run.append(mb)
+                nb, mb, where_nb, where_mb = block_stats.report()
+                max_blocks_per_run.append(nb)
+                max_block_per_run.append(mb)
                 times.append(t)
                 result_val = None
                 if hasattr(bench, 'tensors') and 'result' in bench.tensors:
@@ -178,11 +180,15 @@ def run_bench(model, args):
                     result_val = bench.result
                     del bench.result
                 results.append(result_val)
-                print(f"  run {r+1}/{args.repeat}: {t:.4f}  max_blocks={mb} ({where})", file=f, flush=True)
+                print(f"  run {r+1}/{args.repeat}: {t:.4f}  max_blocks={nb} ({where_nb}) max_block={mb} ({where_mb})", file=f, flush=True)
             print(*(f"{t:.4f}" for t in times), file=f, flush=True)
             if max_blocks_per_run:
-                overall_max = max(max_blocks_per_run)
-                print(f"max_blocks per run: {max_blocks_per_run}; overall_max={overall_max}",
+                overall_max_nb = max(max_blocks_per_run)
+                print(f"max_blocks per run: {max_blocks_per_run}; overall_max={overall_max_nb}",
+                      file=f, flush=True)
+            if max_block_per_run:
+                overall_max_mb = max(max_block_per_run)
+                print(f"max_block per run: {max_block_per_run}; overall_max={overall_max_mb}",
                       file=f, flush=True)
             if any(r is not None for r in results):
                 print("results:", *(f"{r}" for r in results), file=f, flush=True)

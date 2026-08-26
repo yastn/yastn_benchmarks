@@ -10,23 +10,34 @@ import threading
 
 import yastn
 from yastn.tensor import _contractions, _einsum
+from yastn.tensor._auxiliary import get_blocks
 
 
 _lock = threading.Lock()
 _max_blocks = 0
-_max_context = ""  # short tag for which slot held the max (a / b / out)
+_max_block = 0 
+_max_blocks_context = ""  # short tag for which slot held the max (a / b / out)
+_max_block_context = ""  # short tag for which slot held the max block size (a / b / out)
 _installed = False
 
 
 def _consider(tensor, tag):
-    global _max_blocks, _max_context
-    nb = len(getattr(getattr(tensor, "struct", None), "t", ()) or ())
-    if nb <= _max_blocks:
+    global _max_blocks, _max_blocks_context, _max_block, _max_block_context
+    struct= getattr(tensor, "struct", None)
+    if struct is None:
+        return
+    st_full = get_blocks(tensor.config.sym, struct)
+    max_block= max(st_full.slc[:, 1] - st_full.slc[:, 0]) if st_full.slc is not None else 0
+    nb = st_full.nblocks
+    if nb <= _max_blocks and max_block <= _max_block:
         return
     with _lock:
         if nb > _max_blocks:
             _max_blocks = nb
-            _max_context = tag
+            _max_blocks_context = tag
+        if max_block > _max_block:
+            _max_block = max_block
+            _max_block_context = tag
 
 
 _orig_tensordot = _contractions.tensordot
@@ -40,15 +51,18 @@ def _instrumented_tensordot(a, b, axes, conj=(0, 0)):
     return c
 
 
-def accumulate(nb, where="ext"):
+def accumulate(nb, mb, where="ext"):
     """Bump the counter from an external source (e.g. an MP worker)."""
-    global _max_blocks, _max_context
+    global _max_blocks, _max_block, _max_blocks_context, _max_block_context
     if nb <= _max_blocks:
         return
     with _lock:
         if nb > _max_blocks:
             _max_blocks = nb
-            _max_context = where
+            _max_blocks_context = where
+        if mb > _max_block:
+            _max_block = mb
+            _max_block_context = where
 
 
 def install():
@@ -106,6 +120,7 @@ def _install_mp_patches(mp_mod):
             if isinstance(msg, tuple) and len(msg) >= 5 and msg[0] == 'forward_done':
                 try:
                     accumulate(int(msg[4]))
+                    accumulate(int(msg[5]))
                 except Exception:
                     pass
                 msg = msg[:4]
@@ -141,10 +156,11 @@ def _worker_main_with_stats(rank, gpu_dev, config_desc, cmd_q, res_q, *extra):
     def _put_with_stats(msg, *a, **kw):
         if isinstance(msg, tuple) and msg and msg[0] == 'forward_done':
             try:
-                nb, _ = report()
+                nb, mb, _, _ = report()
             except Exception:
                 nb = 0
-            msg = msg + (int(nb),)
+                mb = 0
+            msg = msg + (int(nb), int(mb))
             reset()
         return _orig_put(msg, *a, **kw)
 
@@ -154,11 +170,13 @@ def _worker_main_with_stats(rank, gpu_dev, config_desc, cmd_q, res_q, *extra):
 
 
 def reset():
-    global _max_blocks, _max_context
+    global _max_blocks, _max_blocks_context, _max_block, _max_block_context
     with _lock:
         _max_blocks = 0
-        _max_context = ""
+        _max_block = 0
+        _max_blocks_context = ""
+        _max_block_context = ""
 
 
 def report():
-    return _max_blocks, _max_context
+    return _max_blocks, _max_block, _max_blocks_context, _max_block_context

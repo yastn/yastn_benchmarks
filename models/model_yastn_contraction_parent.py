@@ -135,9 +135,9 @@ class CtmBenchContractionParent(CtmBenchParent):
         """
         kwargs.setdefault('optimizer', self.params['optimizer'])
         kwargs.setdefault('optimizer_kwargs', self.params['optimizer_kwargs'])
+        kwargs.setdefault('unroll', self.params['unroll'])
         path, path_info = yastn.tensor.oe_blocksparse.get_contraction_path(*tn,
-                            unroll=self.params['unroll'], names=names,
-                            who=self.__class__.__name__, **kwargs)
+                            names=names, who=self.__class__.__name__, **kwargs)
         return path, path_info
 
 
@@ -161,10 +161,13 @@ class CtmBenchContractionParent(CtmBenchParent):
                 print("", file=file)
                 print("cutensor cache stats: "+str(list(self.config.backend.cutensor_cache_stats().values())), file=file)
 
-        print("", file=file)
+        print(f"\nContraction path dense-unrolled", file=file)
         # contract_with_unroll caches the path internally; fetching it here is
         # free if a contract step already ran, otherwise computes it on demand.
         _, path_info = self.compute_contraction_path(*self.tn, names=self.tensor_names)
+        print(path_info, file=file)
+        print(f"\nContraction path dense", file=file)
+        _, path_info = self.compute_contraction_path(*self.tn, names=self.tensor_names, unroll=None)
         print(path_info, file=file)
 
         print("", file=file)
