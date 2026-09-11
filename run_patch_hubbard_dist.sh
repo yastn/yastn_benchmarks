@@ -22,18 +22,26 @@ set -euo pipefail
 #   NNODES=1 NPROC_PER_NODE=2 DEVICE=cpu ./run_patch_hubbard_dist.sh
 
 # ---- benchmark configuration ----
-FNAME="Hubbard_U1xU1xZ2_d=4x4_D=12_chi=60"
+# FNAME="Hubbard_U1xU1xZ2_d=4x4_D=12_chi=60"
+FNAME="Heisenberg_U1_d=2_D=4_chi=30"
 # ---- fermionic statistics ----
 # Required for the Hubbard U1xU1xZ2 tensors (parity on the Z2 channel).
 # MUST be blank for bosonic inputs or set to False for every symmetry.
-FERMIONIC="(False,False,True)"
+# FERMIONIC="(False,False,True)"
 FERMIONIC_FLAG=""
-if [[ -n "$FERMIONIC" ]]; then
+if [[ -n "${FERMIONIC:-}" ]]; then
   FERMIONIC_FLAG="-fermionic $FERMIONIC"
 fi
 MODEL="CtmBenchMeasureNconFermionic"
 BACKEND="torch"
 TENSORDOT_POLICY="no_fusion"
+# yastn config lazy_threshold; empty => yastn backend-default (0 for cuTensor, 0.5 otherwise).
+# Override per-run, e.g. LAZY_THRESHOLD=0.3 ./run_patch_hubbard_dist.sh
+LAZY_THRESHOLD="${LAZY_THRESHOLD:-}"
+LAZY_THRESHOLD_FLAG=""
+if [[ -n "$LAZY_THRESHOLD" ]]; then
+  LAZY_THRESHOLD_FLAG="-lazy_threshold $LAZY_THRESHOLD"
+fi
 DEVICE="${DEVICE:-cuda}"   # base device; each rank uses cuda:LOCAL_RANK (nccl) or cpu (gloo)
 REPEAT=2                   # Number of benchmark repeats (for timing statistics)
 DTYPE=float64
@@ -149,6 +157,7 @@ fi
        -model "$MODEL" \
        -repeat "$REPEAT" \
        $FERMIONIC_FLAG \
+       $LAZY_THRESHOLD_FLAG \
        -params "$PARAMS" \
        -fname "$FNAME" \
        -dtype "$DTYPE" -log_level INFO -stdout

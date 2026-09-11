@@ -185,7 +185,10 @@ def fname_output_dist(bench, fname, args, rank, world):
     if path_params:
         ss += '_'.join(f"{k}={v}" for k, v in sorted(path_params.items())) + '/'
     ss += (f"{args.dtype}/num_threads={args.num_threads}/policy={args.tensordot_policy}"
-           f"/lru_cache={args.lru_cache}/{args.backend}/{device}")
+           f"/lru_cache={args.lru_cache}")
+    if args.lazy_threshold is not None:
+        ss += f"/lazy_threshold={args.lazy_threshold}"
+    ss += f"/{args.backend}/{device}"
     path = Path(ss)
     path.mkdir(parents=True, exist_ok=True)
     stem = f"{fname.stem}_mode=dist{world}_rank{rank}"
@@ -199,7 +202,8 @@ def run_bench_dist(model, args, fname, rank, world, device):
     and forces ``distributed=True`` into the model kwargs.
     """
     config = {"backend": args.backend, "default_device": device, "default_dtype": args.dtype,
-              "lru_cache": args.lru_cache, "tensordot_policy": args.tensordot_policy}
+              "lru_cache": args.lru_cache, "tensordot_policy": args.tensordot_policy,
+              "lazy_threshold": args.lazy_threshold}
     if args.fermionic is not None:
         config["fermionic"] = ast.literal_eval(args.fermionic)
     #
@@ -225,6 +229,7 @@ def run_bench_dist(model, args, fname, rank, world, device):
         print(f"Model = {type(bench).__name__}; fname = {fname.name}", file=f, flush=True)
         print(f"backend = {args.backend}; device = {device}; dtype = {args.dtype}", file=f, flush=True)
         print(f"num_threads = {args.num_threads}; tensordot_policy = {args.tensordot_policy}; lru_cache = {args.lru_cache}", file=f, flush=True)
+        print(f"lazy_threshold = {config['lazy_threshold']}", file=f, flush=True)
         if args.fermionic is not None:
             print(f"fermionic = {args.fermionic}", file=f, flush=True)
         print(f"dispatch = dist{world}; rank = {rank}/{world}", file=f, flush=True)
@@ -234,6 +239,9 @@ def run_bench_dist(model, args, fname, rank, world, device):
             times = []
             results = []
             max_blocks_per_run = []
+            max_block_per_run = []
+            f2m_blocks_per_run = []
+            f2m_block_per_run = []
             for r in range(args.repeat):
                 gc.collect()
                 if 'torch' in args.backend and 'cuda' in device:
@@ -241,19 +249,38 @@ def run_bench_dist(model, args, fname, rank, world, device):
                     torch.cuda.empty_cache()
                 block_stats.reset()
                 t = timeit.timeit(stmt=f'bench.{task}()', number=1, globals=locals())
-                mb, where = block_stats.report()
-                max_blocks_per_run.append(mb)
+                stats = block_stats.report()
+                max_blocks_per_run.append(stats.max_blocks)
+                max_block_per_run.append(stats.max_block)
+                f2m_blocks_per_run.append(stats.f2m_blocks)
+                f2m_block_per_run.append(stats.f2m_block)
                 times.append(t)
                 result_val = None
                 if hasattr(bench, 'tensors') and 'result' in bench.tensors:
                     result_val = float(bench.tensors['result']._data[0])
                     del bench.tensors['result']
+                if hasattr(bench, 'result') and bench.result is not None:
+                    result_val = bench.result
+                    del bench.result
                 results.append(result_val)
-                print(f"  run {r+1}/{args.repeat}: {t:.4f}  max_blocks={mb} ({where})", file=f, flush=True)
+                # f2m numbers only exist on the fuse_to_matrix path; keep them out
+                # of the line entirely otherwise, so other policies read as before.
+                f2m_str = f" f2m_blocks={stats.f2m_blocks} f2m_block={stats.f2m_block}" \
+                          if stats.f2m_blocks else ""
+                print(f"  run {r+1}/{args.repeat}: {t:.4f}  max_blocks={stats.max_blocks} ({stats.where_blocks})"
+                      f" max_block={stats.max_block} ({stats.where_block}){f2m_str}", file=f, flush=True)
             print(*(f"{t:.4f}" for t in times), file=f, flush=True)
             if max_blocks_per_run:
                 overall_max = max(max_blocks_per_run)
                 print(f"max_blocks per run: {max_blocks_per_run}; overall_max={overall_max}",
+                      file=f, flush=True)
+            if max_block_per_run:
+                print(f"max_block per run: {max_block_per_run}; overall_max={max(max_block_per_run)}",
+                      file=f, flush=True)
+            if any(f2m_blocks_per_run):
+                print(f"f2m_blocks per run: {f2m_blocks_per_run}; overall_max={max(f2m_blocks_per_run)}",
+                      file=f, flush=True)
+                print(f"f2m_block per run: {f2m_block_per_run}; overall_max={max(f2m_block_per_run)}",
                       file=f, flush=True)
             if any(r is not None for r in results):
                 print("results:", *(f"{r}" for r in results), file=f, flush=True)
@@ -281,6 +308,10 @@ def build_parser():
                              "or 'cpu' (gloo). The per-rank device is derived from LOCAL_RANK.")
     parser.add_argument("-tensordot_policy", type=str, default='no_fusion',
                         choices=['fuse_to_matrix', 'fuse_contracted', 'no_fusion'])
+    parser.add_argument("-lazy_threshold", type=float, default=None,
+                        help="yastn config lazy_threshold: fraction retained/allowed blocks above "
+                             "which blocks are initialized lazily. Omit for yastn's backend-dependent "
+                             "default (0 for cuTensor, 0.5 otherwise).")
     parser.add_argument("-fermionic", type=str, default=None,
                         help="Optional Python literal passed to yastn.make_config as fermionic, "
                              "e.g. 'True' or '(False, False, True)'.")
@@ -303,7 +334,7 @@ def build_parser():
         "-pipeline",
         nargs="*",
         choices=["all", "contract", "precompute_A_mat", "enlarged_corner",
-                 "fuse_enlarged_corner", "svd_enlarged_corner", "ctmrg_update"],
+                 "fuse_enlarged_corner", "svd_enlarged_corner", "ctmrg_update", "count_flops"],
         default=["all"],
         help="Pipeline steps to run; provide multiple values separated by space. Default: all.",
     )
