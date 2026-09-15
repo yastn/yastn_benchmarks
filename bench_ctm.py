@@ -121,6 +121,8 @@ def run_bench(model, args):
         kwargs["devices"] = parse_devices_arg(args.devices)
     if args.mp_workers_per_device > 0:
         kwargs["mp_workers_per_device"] = args.mp_workers_per_device
+    if args.force_dense:
+        kwargs["dense"] = True
     #
     bench = model(fname, config, **kwargs)
     #
@@ -224,6 +226,7 @@ if __name__ == "__main__":
               "CtmBenchYastnDoublePepsTensorFuseLayers": None,
               "CtmBenchUpdate": None,
               "CtmBenchUpdateMP": None,
+              "CtmBenchUpdateJ1J2": None,
               "CtmBenchContraction1x1": None,
               "CtmBenchContraction2x2": None,
               "CtmBenchContraction2x2Measure": None,
@@ -253,14 +256,16 @@ if __name__ == "__main__":
     parser.add_argument("-stdout", dest='to_file', action='store_false', help="By default, write results to files in /results; Use this option to print to stdout.")
     parser.add_argument("-memory_profile", dest='memory_profile', action='store_true', help="Profile memory usage with tracemalloc. High overhead.")
     parser.add_argument("-repeat", type=int, default=4, help='Number of repeated runs; passed to timeit')
-    parser.add_argument("-fname", type=str, default='Heisenberg_U1_d=2_D=4_chi=30', help="Use glob to match basenames of json files in ./input_shapes")
+    parser.add_argument("-fname", type=str, default='Heisenberg_U1_d=2_D=4_chi=30', help="Use glob to match json files (with or without .json suffix) in model's input directory: "
+                             "./input_shapes by default, ./j1j2_ipeps_states for CtmBenchUpdateJ1J2")
     parser.add_argument("-model", type=str, default='Ctm', help="Use 'args.model in model_class_name' to select models",\
                         choices=list(models.keys()))
+    parser.add_argument("-force_dense", action='store_true', help="Force dense tensor representation for all tensors.")
     parser.add_argument("-params", type=str, default='', help="Model-specific parameters, e.g. 'dims=(2,2)' for BenchCtmUpdate")
     parser.add_argument(
         "-pipeline",
         nargs="*",
-        choices=["all", "contract", "precompute_A_mat", "enlarged_corner", "fuse_enlarged_corner", "svd_enlarged_corner", "ctmrg_update", "count_flops"],
+        choices=["all", "contract", "precompute_A_mat", "enlarged_corner", "fuse_enlarged_corner", "svd_enlarged_corner", "ctmrg_update", "ctmrg_full", "count_flops"],
         default=["all"],
         help="Pipeline steps to run (any combination of the choices); provide multiple values separated by space."\
             + "Specific steps depend on the model; check the model's bench_pipeline attribute for available steps. By default, all steps are run.",
@@ -285,6 +290,7 @@ if __name__ == "__main__":
     models["CtmBenchYastnDoublePepsTensorFuseLayers"]= CtmBenchYastnDoublePepsTensorFuseLayers
     models["CtmBenchUpdate"]= CtmBenchUpdate
     models["CtmBenchUpdateMP"]= CtmBenchUpdateMP
+    models["CtmBenchUpdateJ1J2"]= CtmBenchUpdateJ1J2
     models["CtmBenchContraction1x1"]= CtmBenchContraction1x1
     models["CtmBenchContraction2x2"]= CtmBenchContraction2x2
     models["CtmBenchContraction2x2Measure"]= CtmBenchContraction2x2Measure
@@ -295,11 +301,12 @@ if __name__ == "__main__":
 
     # identify models and input files to run
     use_models = [args.model]
-    fnames = glob.glob(os.path.join(os.path.dirname(__file__), "input_shapes/", args.fname + '.json'))
+    input_dir = os.path.join(os.path.dirname(__file__), models[args.model].input_dir)
+    fnames = glob.glob(os.path.join(input_dir, args.fname.removesuffix('.json') + '.json'))
     fnames = [Path(fname) for fname in sorted(fnames)]
 
     if len(fnames) == 0:
-        print(f"No input files found for pattern {args.fname} in {os.path.join(os.path.dirname(__file__), 'input_shapes/')}")
+        print(f"No input files found for pattern {args.fname} in {input_dir}")
         sys.exit(1)
 
     # execute benchmarks

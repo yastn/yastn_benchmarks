@@ -37,6 +37,12 @@ Exemplary execution of full CTMRG update benchmark
 python bench_ctm.py -model CtmBenchUpdate -params 'dims=(4, 2)' -fname 'Heisenberg_U1_d=2_D=4_chi=30'
 ```
 
+CTMRG on realistic states, i.e., optimized U(1)-symmetric iPEPS of the J1-J2 model from [j1j2_ipeps_states](https://github.com/jurajHasik/j1j2_ipeps_states) (included as a git submodule), is available through `CtmBenchUpdateJ1J2`. Here, `-fname` points to a state inside `./j1j2_ipeps_states/`, and `chi` defaults to the value of `chi_opt` in the file name
+```
+git submodule update --init
+python bench_ctm.py -model CtmBenchUpdateJ1J2 -fname 'single-site_pg-C4v-A1_internal-U1/j20.25/state_1s_A1_U1B_j20.25_D5_chi_opt101'
+```
+
 For more options, see
 ```
 python bench_ctm.py --help

@@ -1,0 +1,3 @@
+[submodule "j1j2_ipeps_states"]
+	path = j1j2_ipeps_states
+	url = https://github.com/jurajHasik/j1j2_ipeps_states.git
