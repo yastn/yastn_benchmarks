@@ -35,6 +35,7 @@ class CtmBenchUpdate(CtmBenchParent):
                        'max_sweeps': 10,
                        'method': '2x2',
                        'moves': 'hv',
+                       'use_qr': True,
                        'opts_si': {'enabled': False},
                        'policy': 'fullrank'})
         #
@@ -175,6 +176,7 @@ class CtmBenchUpdate(CtmBenchParent):
         print("sym:", self.config_dense.sym if self.params["dense"] else self.config.sym, file=file)
         print("default_fusion:", self.config.default_fusion, file=file)
         print("chi:", self.params['chi'], file=file)
+        print("use_qr:", self.params['use_qr'], file=file)
         print("opts_si:", self.params['opts_si'], file=file)
         print("", file=file)
         print("Cache info", file=file)  # auxiliary information from lru_cache
@@ -202,7 +204,7 @@ class CtmBenchUpdate(CtmBenchParent):
         opts_svd = {'D_total': D_total,
                     'tol': 1e-12, 'policy': self.params['policy']}
         ctm_it= self.env.ctmrg_(iterator=1, max_sweeps=self.params['max_sweeps'], 
-                                moves=self.params['moves'], method=self.params['method'], 
+                                moves=self.params['moves'], method=self.params['method'], use_qr= self.params['use_qr'],
                                 corner_tol= -1, opts_svd= opts_svd, opts_si=self.params['opts_si'])
         for sweep in ctm_it:
             print(f"{sweep}")
