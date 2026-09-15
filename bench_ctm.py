@@ -91,7 +91,10 @@ def fname_output(bench, fname, args):
                    if k not in _skip_path_keys and v is not None and v is not False and v != 0}
     if path_params:
         ss += '_'.join(f"{k}={v}" for k, v in sorted(path_params.items())) + '/'
-    ss += f"{args.dtype}/num_threads={args.num_threads}/policy={args.tensordot_policy}/lru_cache={args.lru_cache}/{args.backend}/{device}"
+    ss += f"{args.dtype}/num_threads={args.num_threads}/policy={args.tensordot_policy}/lru_cache={args.lru_cache}"
+    if args.lazy_threshold is not None:
+        ss += f"/lazy_threshold={args.lazy_threshold}"
+    ss += f"/{args.backend}/{device}"
     path = Path(ss)
     path.mkdir(parents=True, exist_ok=True)
     stem = fname.stem
@@ -107,7 +110,8 @@ def run_bench(model, args):
     Run a single benchmark and output results to file or to stdout
     """
     config = {"backend": args.backend, "default_device": args.device, "default_dtype": args.dtype,
-              "lru_cache": args.lru_cache, "tensordot_policy": args.tensordot_policy}
+              "lru_cache": args.lru_cache, "tensordot_policy": args.tensordot_policy,
+              "lazy_threshold": args.lazy_threshold}
     if args.fermionic is not None:
         config["fermionic"] = ast.literal_eval(args.fermionic)
     #
@@ -136,6 +140,7 @@ def run_bench(model, args):
         print(f"Model = {type(bench).__name__}; fname = {fname.name}", file=f, flush=True)
         print(f"backend = {args.backend}; device = {args.device}; dtype = {args.dtype}", file=f, flush=True)
         print(f"num_threads = {args.num_threads}; tensordot_policy = {args.tensordot_policy}; lru_cache = {args.lru_cache}", file=f, flush=True)
+        print(f"lazy_threshold = {config['lazy_threshold']}", file=f, flush=True)
         if args.fermionic is not None:
             print(f"fermionic = {args.fermionic}", file=f, flush=True)
         if args.devices is not None:
@@ -149,6 +154,9 @@ def run_bench(model, args):
             times = []
             results = []
             max_blocks_per_run = []
+            max_block_per_run = []
+            f2m_blocks_per_run = []
+            f2m_block_per_run = []
             for r in range(args.repeat):
                 gc.collect()
                 if 'torch' in args.backend and 'cuda' in args.device:
@@ -162,19 +170,39 @@ def run_bench(model, args):
                 # except AssertionError:
                 #     print("Model too large to execute (check conditions in /models/model_parent.py)", file=f)
                 #     return None
-                mb, where = block_stats.report()
-                max_blocks_per_run.append(mb)
+                stats = block_stats.report()
+                max_blocks_per_run.append(stats.max_blocks)
+                max_block_per_run.append(stats.max_block)
+                f2m_blocks_per_run.append(stats.f2m_blocks)
+                f2m_block_per_run.append(stats.f2m_block)
                 times.append(t)
                 result_val = None
                 if hasattr(bench, 'tensors') and 'result' in bench.tensors:
                     result_val = float(bench.tensors['result']._data[0])
                     del bench.tensors['result']
+                if hasattr(bench, 'result') and bench.result is not None:
+                    result_val = bench.result
+                    del bench.result
                 results.append(result_val)
-                print(f"  run {r+1}/{args.repeat}: {t:.4f}  max_blocks={mb} ({where})", file=f, flush=True)
+                # f2m numbers only exist on the fuse_to_matrix path; keep them out
+                # of the line entirely otherwise, so other policies read as before.
+                f2m_str = f" f2m_blocks={stats.f2m_blocks} f2m_block={stats.f2m_block}" \
+                          if stats.f2m_blocks else ""
+                print(f"  run {r+1}/{args.repeat}: {t:.4f}  max_blocks={stats.max_blocks} ({stats.where_blocks})"
+                      f" max_block={stats.max_block} ({stats.where_block}){f2m_str}", file=f, flush=True)
             print(*(f"{t:.4f}" for t in times), file=f, flush=True)
             if max_blocks_per_run:
-                overall_max = max(max_blocks_per_run)
-                print(f"max_blocks per run: {max_blocks_per_run}; overall_max={overall_max}",
+                overall_max_nb = max(max_blocks_per_run)
+                print(f"max_blocks per run: {max_blocks_per_run}; overall_max={overall_max_nb}",
+                      file=f, flush=True)
+            if max_block_per_run:
+                overall_max_mb = max(max_block_per_run)
+                print(f"max_block per run: {max_block_per_run}; overall_max={overall_max_mb}",
+                      file=f, flush=True)
+            if any(f2m_blocks_per_run):
+                print(f"f2m_blocks per run: {f2m_blocks_per_run}; overall_max={max(f2m_blocks_per_run)}",
+                      file=f, flush=True)
+                print(f"f2m_block per run: {f2m_block_per_run}; overall_max={max(f2m_block_per_run)}",
                       file=f, flush=True)
             if any(r is not None for r in results):
                 print("results:", *(f"{r}" for r in results), file=f, flush=True)
@@ -208,12 +236,17 @@ if __name__ == "__main__":
     parser.add_argument("-dtype", type=str, default='float64', choices=['float32', 'float64', 'complex64', 'complex128'])
     parser.add_argument("-device", type=str, default='cpu', help="cpu, cuda, cuda:<device_id>, etc.")
     parser.add_argument("-devices", type=str, default=None,
-                        help="Optional device list for multi-device unrolled contraction, e.g. \"['cuda:0', 'cuda:1']\" or \"cuda:0,cuda:1\".")
+                        help="Optional device list for multi-device unrolled contraction, e.g. \"['cuda:0', 'cuda:1']\" or \"cuda:0,cuda:1\"."
+                             " If provided, overrides -device and sets default_device to the first device in the list.")
     parser.add_argument("-mp_workers_per_device", type=int, default=0,
                         help="If >0, dispatch sliced-unroll combos via the multiprocessing path "
                              "(_oe_blocksparse_mp) with this many worker processes per device. "
                              "Default 0 runs serially in-process.")
     parser.add_argument("-tensordot_policy", type=str, default='no_fusion', choices=['fuse_to_matrix', 'fuse_contracted', 'no_fusion'])
+    parser.add_argument("-lazy_threshold", type=float, default=None,
+                        help="yastn config lazy_threshold: fraction retained/allowed blocks above "
+                             "which blocks are initialized lazily. Omit for yastn's backend-dependent "
+                             "default (0 for cuTensor, 0.5 otherwise).")
     parser.add_argument("-fermionic", type=str, default=None,
                         help="Optional Python literal passed to yastn.make_config as fermionic, e.g. 'True' or '(False, False, True)'.")
     parser.add_argument("-no_lru_cache", dest='lru_cache', action='store_false', help="Yastn is using lru_cache to back up algebra of symmetries. Use this option to switch it off.")
@@ -227,7 +260,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-pipeline",
         nargs="*",
-        choices=["all", "contract", "precompute_A_mat", "enlarged_corner", "fuse_enlarged_corner", "svd_enlarged_corner", "ctmrg_update"],
+        choices=["all", "contract", "precompute_A_mat", "enlarged_corner", "fuse_enlarged_corner", "svd_enlarged_corner", "ctmrg_update", "count_flops"],
         default=["all"],
         help="Pipeline steps to run (any combination of the choices); provide multiple values separated by space."\
             + "Specific steps depend on the model; check the model's bench_pipeline attribute for available steps. By default, all steps are run.",
@@ -235,6 +268,8 @@ if __name__ == "__main__":
     parser.add_argument("-num_threads", type=str, default='none', help="Set number of threads for CPU backends; Use 'none' to keep default settings.")
     args = parser.parse_args()
 
+    if args.devices is not None:
+        args.device= parse_devices_arg(args.devices)[0]  # default_device is taken from first device in the list
     if args.num_threads.lower() != 'none':
         os.environ["OMP_NUM_THREADS"] = args.num_threads
         os.environ["OPENBLAS_NUM_THREADS"] = args.num_threads

@@ -395,5 +395,5 @@ class CtmBenchMeasureNconFermionic(CtmBenchContractionParent):
             print(f"num_swap_pairs: {len(self.swap_pairs)}", file=file)
             print("", file=file)
         super().print_properties(file=file)
-        if self.result is not None:
+        if hasattr(self,"result") and self.result is not None:
             print(f"result: {self.result}", file=file)
