@@ -169,11 +169,13 @@ class CtmBenchUpdate(CtmBenchParent):
         print(f"Perform ctmrg update in {self.params['dims']} SquareLattice", file=file)
 
     def print_properties(self, file=None):
-        print("", file=file)
+        print("CtmBenchUpdate properties", file=file)
         print("Config:", file=file)
         print("backend:", self.config.backend, file=file)
-        print("sym:", self.config.sym, file=file)
+        print("sym:", self.config_dense.sym if self.params["dense"] else self.config.sym, file=file)
         print("default_fusion:", self.config.default_fusion, file=file)
+        print("chi:", self.params['chi'], file=file)
+        print("opts_si:", self.params['opts_si'], file=file)
         print("", file=file)
         print("Cache info", file=file)  # auxiliary information from lru_cache
         for rec in yastn.get_cache_info().items():

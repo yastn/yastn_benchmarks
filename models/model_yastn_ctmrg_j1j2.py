@@ -67,7 +67,7 @@ class CtmBenchUpdateJ1J2(CtmBenchUpdate):
         a = yastn.Tensor(config=self.config, s=(1, 1, 1, 1, 1), n=self.input['n'])
         for ts, b in self.input['blocks'].items():
             a.set_block(ts=ts, Ds=b.shape, val=b)
-        return a
+        return a.to(device=self.config.default_device, dtype=self.config.default_dtype)
 
     def init_even_unitcell(self, legs_a, legs):
         r"""
@@ -102,3 +102,7 @@ class CtmBenchUpdateJ1J2(CtmBenchUpdate):
 
     def init_any_unitcell(self, legs_a, legs):
         raise AssertionError(f"{type(self).__name__} uses bipartite tiling; unit-cell size should be even in both directions.")
+    
+    def print_properties(self, file=None):
+        print("CtmBenchUpdateJ1J2 properties", file=file)
+        super().print_properties(file=file)
