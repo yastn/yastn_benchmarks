@@ -101,7 +101,24 @@ class CtmBenchUpdateJ1J2(CtmBenchUpdate):
         return env
 
     def init_any_unitcell(self, legs_a, legs):
-        raise AssertionError(f"{type(self).__name__} uses bipartite tiling; unit-cell size should be even in both directions.")
+        if not self.params['dense']:
+            raise AssertionError(f"{type(self).__name__} uses bipartite tiling; unit-cell size should be even in both directions.")
+        a = self.init_onsite_t().to_nonsymmetric()
+        # signature [s,u,l,d,r]: [1,1,1,1,1] -> [-1,-1,-1,1,1]
+        a0 = a.flip_charges(axes=(0, 1, 2))
+        # [s,u,l,d,r] -> [t,l,b,r,s]
+        a0 = a0.transpose(axes=(1, 2, 3, 4, 0))
+
+        geometry = peps.SquareLattice(dims=self.params['dims'])
+        psi = peps.Peps(geometry)
+        for site in psi.sites():
+            psi[site] = a0
+
+        #
+        env = peps.EnvCTM(psi, init=None)
+        env.reset_(init='dl')
+        assert env.is_consistent()
+        return env
     
     def print_properties(self, file=None):
         print("CtmBenchUpdateJ1J2 properties", file=file)
