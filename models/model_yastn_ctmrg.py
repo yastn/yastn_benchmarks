@@ -156,14 +156,14 @@ class CtmBenchUpdate(CtmBenchParent):
         return env
 
     def leading_corner_spec(self, corner_ids: Sequence[(peps.Site,str)]=None, n=8)->str:
-        """ report leading part of spectrum of env. tensors for top-left and bottom-right corners of the unit-cell """
+        """ report leading top and bottom parts of spectrum of env. tensors for top-left and bottom-right corners of the unit-cell """
         if corner_ids is None:
             corner_ids= [((0,0), "tl"), ((self.params["dims"][0]-1,self.params["dims"][1]-1), "br")]
         c_spec= self.env.calculate_corner_svd()
         res= ""
         for site,dir in corner_ids:
             spec= np.diag(c_spec[peps.Site(site[0]%self.params["dims"][0], site[1]%self.params["dims"][1]),dir].to_numpy())
-            res+= f"svd_spec C[{site},{dir}] { np.sort(spec)[-n:][::-1] }\n"
+            res+= f"svd_spec C[{site},{dir}] { np.sort(spec)[-n:][::-1] } { np.sort(spec)[:n] }\n"
         return res
 
     def print_header(self, file=None):
