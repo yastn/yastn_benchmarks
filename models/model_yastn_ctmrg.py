@@ -208,6 +208,8 @@ class CtmBenchUpdate(CtmBenchParent):
                                 corner_tol= -1, opts_svd= opts_svd, opts_si=self.params['opts_si'])
         for sweep in ctm_it:
             print(f"{sweep}")
+            if self.params['opts_si']["enabled"]:
+                print(f"si: {self.env._si_age}")
         print(self.leading_corner_spec())
         
 
