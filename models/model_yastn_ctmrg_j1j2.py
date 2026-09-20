@@ -106,6 +106,7 @@ class CtmBenchUpdateJ1J2(CtmBenchUpdate):
         a = self.init_onsite_t().to_nonsymmetric()
         # signature [s,u,l,d,r]: [1,1,1,1,1] -> [-1,-1,-1,1,1]
         a0 = a.flip_charges(axes=(0, 1, 2))
+        a0.set_block(ts=(), Ds=a[()].shape, val=a[()])
         # [s,u,l,d,r] -> [t,l,b,r,s]
         a0 = a0.transpose(axes=(1, 2, 3, 4, 0))
 
