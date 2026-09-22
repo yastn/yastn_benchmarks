@@ -36,6 +36,7 @@ class CtmBenchUpdate(CtmBenchParent):
                        'method': '2x2',
                        'moves': 'hv',
                        'use_qr': True,
+                       'pseudoinv_tol': 1.0e-12,
                        'opts_si': {'enabled': False},
                        'policy': 'fullrank'})
         #
@@ -202,7 +203,7 @@ class CtmBenchUpdate(CtmBenchParent):
         D_total = self.params['chi'] if self.params['chi'] is not None \
             else sum(self.make_leg(self.input['Tt_leg_l'],self.params["dense"]).tD.values())
         opts_svd = {'D_total': D_total,
-                    'tol': 1e-12, 'policy': self.params['policy']}
+                    'tol': self.params['pseudoinv_tol'], 'policy': self.params['policy']}
         ctm_it= self.env.ctmrg_(iterator=1, max_sweeps=self.params['max_sweeps'], 
                                 moves=self.params['moves'], method=self.params['method'], use_qr= self.params['use_qr'],
                                 corner_tol= -1, opts_svd= opts_svd, opts_si=self.params['opts_si'])
