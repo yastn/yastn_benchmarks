@@ -15,30 +15,39 @@
 # ==============================================================================
 """ Contractions for benchmarks: yastn with ctm tensors with no legs fused. """
 from __future__ import annotations
+from typing import Sequence
 from .model_parent import CtmBenchParent, nvtx
 import yastn
 import yastn.tn.fpeps as peps
+import numpy as np
 
 
 class CtmBenchUpdate(CtmBenchParent):
 
     def __init__(self, fname, config, **kwargs):
         """ Initialize tensors for contraction. """
-        super().__init__(fname, config)
+        super().__init__(fname, config, **kwargs)
         #
-        self.bench_pipeline = ["ctmrg_update"]
-        self.params = {'seed': 0,
+        self.bench_pipeline = ["ctmrg_update", "ctmrg_full"]
+        self.params.update({
+                       'chi': None,           # when is set, the env. spaces are adjusted via CTM. Otherwise they are frozen to the initial values
                        'dims': (2, 2),
+                       'max_sweeps': 10,
                        'method': '2x2',
-                       'policy': 'fullrank'}  # default params
+                       'moves': 'hv',
+                       'use_qr': True,
+                       'pseudoinv_tol': 1.0e-12,
+                       'opts_si': {'enabled': False},
+                       'policy': 'fullrank'})
         #
         for k in self.params:
             if k in kwargs:
                 self.params[k] = kwargs[k]
         
         #
-        legs = {k: yastn.Leg(self.config, s=v['signature'], t=v['charges'], D=v['dimensions'])
-                for k, v in self.input.items() if "leg" in k}
+        self.make_leg= lambda v,dense: yastn.Leg(self.config_dense, s=v['signature'], t=(), D=(sum(v['dimensions']),)) if dense \
+            else yastn.Leg(self.config, s=v['signature'], t=v['charges'], D=v['dimensions'])
+        legs = {k: self.make_leg(v,False) for k, v in self.input.items() if "leg" in k}
         legs_a = ["a_leg_t", "a_leg_l", "a_leg_b", "a_leg_r", "a_leg_s", "a_leg_a"]
         legs_a = [legs[k] for k in legs_a if k in legs]
         if len(legs_a) == 6:  # if ancilla leg is present, system and ancilla legs are fused
@@ -62,7 +71,7 @@ class CtmBenchUpdate(CtmBenchParent):
         tmp= yastn.rand(config_np, legs=legs)
         res= yastn.zeros(self.config, legs=legs)
         res._data= self.config.backend.to_tensor( tmp._data, device=self.config.default_device, dtype=self.config.default_dtype )
-        return res        
+        return res.to_nonsymmetric() if self.params['dense'] else res        
 
     def init_even_unitcell(self, legs_a, legs):
         ls_a = {0: [legs_a[0], legs_a[1], legs_a[2], legs_a[3], legs_a[4]],
@@ -94,17 +103,19 @@ class CtmBenchUpdate(CtmBenchParent):
 
         #
         env = peps.EnvCTM(psi, init=None)
+        make_env_tensor= lambda legs: yastn.rand(self.config, legs=legs).to_nonsymmetric() \
+            if self.params['dense'] else yastn.rand(self.config, legs=legs)
         for site in env.sites():
             s2 = sum(site) % 2
-            env[site].t = yastn.rand(self.config, legs=legs_t[s2]).fuse_legs(axes=(0, (1, 2), 3))
-            env[site].r = yastn.rand(self.config, legs=legs_r[s2]).fuse_legs(axes=(0, (1, 2), 3))
-            env[site].b = yastn.rand(self.config, legs=legs_b[s2]).fuse_legs(axes=(0, (1, 2), 3))
-            env[site].l = yastn.rand(self.config, legs=legs_l[s2]).fuse_legs(axes=(0, (1, 2), 3))
-            env[site].tr = yastn.rand(self.config, legs=legs_tr[s2])
-            env[site].br = yastn.rand(self.config, legs=legs_br[s2])
-            env[site].bl = yastn.rand(self.config, legs=legs_bl[s2])
-            env[site].tl = yastn.rand(self.config, legs=legs_tl[s2])
-        #
+            env[site].t = make_env_tensor(legs_t[s2]).fuse_legs(axes=(0, (1, 2), 3)) 
+            env[site].r = make_env_tensor(legs_r[s2]).fuse_legs(axes=(0, (1, 2), 3))
+            env[site].b = make_env_tensor(legs=legs_b[s2]).fuse_legs(axes=(0, (1, 2), 3))
+            env[site].l = make_env_tensor(legs=legs_l[s2]).fuse_legs(axes=(0, (1, 2), 3))
+            env[site].tr = make_env_tensor(legs=legs_tr[s2])
+            env[site].br = make_env_tensor(legs=legs_br[s2])
+            env[site].bl = make_env_tensor(legs=legs_bl[s2])
+            env[site].tl = make_env_tensor(legs=legs_tl[s2])
+
         assert env.is_consistent()
         return env
 
@@ -145,22 +156,35 @@ class CtmBenchUpdate(CtmBenchParent):
         # assert env.is_consistent()
         return env
 
+    def leading_corner_spec(self, corner_ids: Sequence[(peps.Site,str)]=None, n=8)->str:
+        """ report leading top and bottom parts of spectrum of env. tensors for top-left and bottom-right corners of the unit-cell """
+        if corner_ids is None:
+            corner_ids= [((0,0), "tl"), ((self.params["dims"][0]-1,self.params["dims"][1]-1), "br")]
+        c_spec= self.env.calculate_corner_svd()
+        res= ""
+        for site,dir in corner_ids:
+            spec= np.diag(c_spec[peps.Site(site[0]%self.params["dims"][0], site[1]%self.params["dims"][1]),dir].to_numpy())
+            res+= f"svd_spec C[{site},{dir}] { np.sort(spec)[-n:][::-1] } { np.sort(spec)[:n] }\n"
+        return res
 
     def print_header(self, file=None):
         print(f"Perform ctmrg update in {self.params['dims']} SquareLattice", file=file)
 
     def print_properties(self, file=None):
-        print("", file=file)
+        print("CtmBenchUpdate properties", file=file)
         print("Config:", file=file)
         print("backend:", self.config.backend, file=file)
-        print("sym:", self.config.sym, file=file)
+        print("sym:", self.config_dense.sym if self.params["dense"] else self.config.sym, file=file)
         print("default_fusion:", self.config.default_fusion, file=file)
+        print("chi:", self.params['chi'], file=file)
+        print("use_qr:", self.params['use_qr'], file=file)
+        print("opts_si:", self.params['opts_si'], file=file)
         print("", file=file)
         print("Cache info", file=file)  # auxiliary information from lru_cache
         for rec in yastn.get_cache_info().items():
             print(*rec, file=file)
 
-        if self.config.backend.BACKEND_ID in ["torch_cpp",] and self.config.backend.cuda_is_available():
+        if self.config.backend.BACKEND_ID in ["torch_cutensor",] and self.config.backend.cuda_is_available():
             print("", file=file)
             print("cutensor cache stats: "+str(list(yastn.backend.backend_torch_cpp.cutensor_cache_stats().values())), file=file)
 
@@ -168,9 +192,27 @@ class CtmBenchUpdate(CtmBenchParent):
     def ctmrg_update(self):
         r""" update """
         v = self.input['Tt_leg_l']
-        leg = yastn.Leg(self.config, s=v['signature'], t=v['charges'], D=v['dimensions'])
-        opts_svd = {'D_block': leg.tD, 'tol': 1e-12, 'policy': self.params['policy']}
+        leg = self.make_leg(v,self.params['dense'])
+        opts_svd = {'D_block': leg.tD, 
+                    'tol': 1e-12, 'policy': self.params['policy']}
         self.env.update_(opts_svd=opts_svd, method=self.params['method'])
+
+    @nvtx
+    def ctmrg_full(self):
+        r""" full """
+        D_total = self.params['chi'] if self.params['chi'] is not None \
+            else sum(self.make_leg(self.input['Tt_leg_l'],self.params["dense"]).tD.values())
+        opts_svd = {'D_total': D_total,
+                    'tol': self.params['pseudoinv_tol'], 'policy': self.params['policy']}
+        ctm_it= self.env.ctmrg_(iterator=1, max_sweeps=self.params['max_sweeps'], 
+                                moves=self.params['moves'], method=self.params['method'], use_qr= self.params['use_qr'],
+                                corner_tol= -1, opts_svd= opts_svd, opts_si=self.params['opts_si'])
+        for sweep in ctm_it:
+            print(f"{sweep}")
+            if self.params['opts_si']["enabled"]:
+                print(f"si: {self.env._si_age}")
+        print(self.leading_corner_spec())
+        
 
     def final_cleanup(self):
         yastn.clear_cache()  # yastn is using lru_cache to store contraction logic

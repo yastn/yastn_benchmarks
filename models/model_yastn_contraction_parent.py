@@ -27,9 +27,7 @@ class CtmBenchContractionParent(CtmBenchParent):
         """
         super().__init__(fname, config)
         self.bench_pipeline = ["contract", "count_flops"]  # default pipeline steps; subclasses can override
-        self.params = {'seed': 0,
-                       'dense': False,
-                       'checkpoint_loop': False,
+        self.params.update({'checkpoint_loop': False,
                        'unroll': None,
                        'optimizer': "default",
                        'optimizer_kwargs': {},
@@ -37,7 +35,7 @@ class CtmBenchContractionParent(CtmBenchParent):
                        'mp_workers_per_device': 0,
                        'per_combo_path': False,
                        'combo_path_kwargs': None,
-                       'distributed': False}  # default params
+                       'distributed': False})  # default params
         for k in self.params:
             if k in kwargs:
                 self.params[k] = kwargs[k]
@@ -50,7 +48,6 @@ class CtmBenchContractionParent(CtmBenchParent):
         self.legs = {k: yastn.Leg(self.config, s=v['signature'], t=v['charges'], D=v['dimensions'])
                 for k, v in self.input.items() if "leg" in k}
         if self.params['dense']:
-            self.config= self.config._replace(sym=yastn.sym.sym_none)
             for k in self.legs:
                 self.legs[k]= yastn.Leg(s=self.legs[k].s, t=(), D=(sum(self.legs[k].D),))
 

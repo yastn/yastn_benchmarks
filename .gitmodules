@@ -1,0 +1,6 @@
+[submodule "j1j2_ipeps_states"]
+	path = j1j2_ipeps_states
+	url = https://github.com/jurajHasik/j1j2_ipeps_states.git
+[submodule "j1jD_kagome_ipeps_states"]
+	path = j1jD_kagome_ipeps_states
+	url = https://github.com/jurajHasik/j1jD_kagome_ipeps_states.git
