@@ -227,6 +227,7 @@ if __name__ == "__main__":
               "CtmBenchUpdate": None,
               "CtmBenchUpdateMP": None,
               "CtmBenchUpdateJ1J2": None,
+              "CtmBenchUpdateKagome": None,
               "CtmBenchContraction1x1": None,
               "CtmBenchContraction2x2": None,
               "CtmBenchContraction2x2Measure": None,
@@ -257,7 +258,8 @@ if __name__ == "__main__":
     parser.add_argument("-memory_profile", dest='memory_profile', action='store_true', help="Profile memory usage with tracemalloc. High overhead.")
     parser.add_argument("-repeat", type=int, default=4, help='Number of repeated runs; passed to timeit')
     parser.add_argument("-fname", type=str, default='Heisenberg_U1_d=2_D=4_chi=30', help="Use glob to match json files (with or without .json suffix) in model's input directory: "
-                             "./input_shapes by default, ./j1j2_ipeps_states for CtmBenchUpdateJ1J2")
+                             "./input_shapes by default, ./j1j2_ipeps_states for CtmBenchUpdateJ1J2, "
+                             "./j1jD_kagome_ipeps_states for CtmBenchUpdateKagome")
     parser.add_argument("-model", type=str, default='Ctm', help="Use 'args.model in model_class_name' to select models",\
                         choices=list(models.keys()))
     parser.add_argument("-force_dense", action='store_true', help="Force dense tensor representation for all tensors.")
@@ -291,6 +293,7 @@ if __name__ == "__main__":
     models["CtmBenchUpdate"]= CtmBenchUpdate
     models["CtmBenchUpdateMP"]= CtmBenchUpdateMP
     models["CtmBenchUpdateJ1J2"]= CtmBenchUpdateJ1J2
+    models["CtmBenchUpdateKagome"]= CtmBenchUpdateKagome
     models["CtmBenchContraction1x1"]= CtmBenchContraction1x1
     models["CtmBenchContraction2x2"]= CtmBenchContraction2x2
     models["CtmBenchContraction2x2Measure"]= CtmBenchContraction2x2Measure
