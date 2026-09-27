@@ -186,7 +186,8 @@ class CtmBenchUpdate(CtmBenchParent):
 
         if self.config.backend.BACKEND_ID in ["torch_cutensor",] and self.config.backend.cuda_is_available():
             print("", file=file)
-            print("cutensor cache stats: "+str(list(yastn.backend.backend_torch_cpp.cutensor_cache_stats().values())), file=file)
+            print("cutensor descriptor cache stats: "+str(list(yastn.backend.descriptor_cache_stats())), file=file)
+            print("cutensor plan cache stats: "+str(list(yastn.backend.plan_cache_stats())), file=file)
 
     @nvtx
     def ctmrg_update(self):
