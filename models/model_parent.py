@@ -34,19 +34,25 @@ def nvtx(func):
 
 class CtmBenchParent(metaclass=abc.ABCMeta):
 
+    input_dir = "input_shapes"  # directory (relative to bench_ctm.py) where -fname is resolved
+
     def __init__(self, fname, config, **kwargs):
         """
         Read tensors legs and other information into dictionary self.input
         """
         self.bench_pipeline = []
-        self.params = {}
+        self.params = {'dense': False,
+                       'seed': 0}
+        for k in self.params:
+            if k in kwargs:
+                self.params[k] = kwargs[k]
 
-        with open(fname, "r", encoding='utf-8') as f:
-            self.input = json.load(f)
+        self.input = self.read_input(fname)
 
         if not config["lru_cache"]:
             yastn.set_cache_maxsize(maxsize=0)
         self.config = yastn.make_config(sym=self.input["symmetry"], **config)
+        self.config_dense = yastn.make_config(sym='dense', **config)
         self.config.backend.random_seed(seed=0)  # TODO allow for different seeds
 
         self.use_nvtx = ("torch" in self.config.backend.BACKEND_ID) and self.config.backend.cuda_is_available()
@@ -54,6 +60,11 @@ class CtmBenchParent(metaclass=abc.ABCMeta):
         Ds = [sum(self.input[dirn]["dimensions"]) for dirn in ["a_leg_t", "a_leg_l", "a_leg_b", "a_leg_r"]]
         D4 = Ds[0] * Ds[1] * Ds[2] * Ds[3]
         self.allow_explicit_double_layer = (D4 <= double_layer_D_limit[self.input["symmetry"]] ** 4)
+
+    def read_input(self, fname):
+        r""" Read tensor legs and other information from json file. """
+        with open(fname, "r", encoding='utf-8') as f:
+            return json.load(f)
 
     def print_header(self, file=None):
         print(" No benchmark ", file=file)
